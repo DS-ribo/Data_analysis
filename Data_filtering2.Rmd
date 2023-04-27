@@ -1,0 +1,69 @@
+---
+title: "Data_filtering_2_and_rDNA_copy_number_estimates"
+output: html_document
+---
+
+```{r}
+#Packages
+library("dplyr")
+library("ggplot2")
+```
+
+## Values are given for haploid genome and already adjusted for aneuploidies
+```{r}
+##Data
+#the values are given for a haploid genome (and adjusted for aneuploidies(?))
+copynumber <- read.delim("~/Desktop/work/rDNA_project/all_isolates/genesMatrix_CopyNumber.tab",
+                         "\t",
+                         header=T)
+ploidy <- read.table("~/Desktop/work/database/source/Ploidy_Chr12_aneuploidy_Peter_etal.txt", "\t", header = T)
+#note: ploidies are character vector not numeric
+#there is one isolate with "Xn" ploidy (AEC)
+
+#variants
+variants <- read.table("~/Desktop/work/database/OLD_Variants.txt", comment.char = "#", sep = "\t", header = T)
+
+#Up the threshold: use >= 0.5% instead of 0.4%
+variants <- subset(variants, VF >= 0.005)
+
+#poly-tracts
+poly_mers <- read.table("~/Desktop/work/rDNA_analysis2/homopolymer_POS.txt", sep = "\t", header = T)
+```
+
+```{r}
+rDNA_copynum <- data.frame(copynumber$"STD_name", copynumber$"X7841.RDN25.1_NumOfGenes_5", copynumber$"X7842.RDN18.1", copynumber$"X7843.RDN58.1_NumOfGenes_2")
+colnames(rDNA_copynum)<-c("NAME", "RDN25", "RDN18", "RDN5.8")
+head(rDNA_copynum)
+
+rDNA_copynum$mean_per_haploid <- round((apply(rDNA_copynum[,2:4], 1, mean)), digits=0)
+rDNA_copynum<-merge(rDNA_copynum, ploidy, by = "NAME")
+
+rDNA_copynum$total <- rDNA_copynum$mean_per_haploid*as.numeric(rDNA_copynum$Ploidy)
+```
+for each isolate find the minimal VF and calculate how many rDNA copy numbers would it be
+```{r}
+min_exp_VF<-variants %>% group_by(NAME) %>% summarise(minVF = round(min(VF), digits = 3))
+rDNA_copynum$one_copy_VF <- round(1/rDNA_copynum$total, digits = 3)
+
+difference<-merge(min_exp_VF, rDNA_copynum[,c(1,9)], by = "NAME")
+difference$obs_vs_expect<-difference[2]-difference[,3]
+
+table(difference$obs_vs_expect < 0) #there are 191 isolates which have at least one VFP with VFs below 1rDNA copy
+
+#remove the very low VFPs
+
+filtered_vars <- merge(variants, rDNA_copynum[c(1,9)], by = "NAME")
+filtered_vars$difference <- filtered_vars$VF - filtered_vars[,14]
+
+#remove where difference between expected and observed minimal VF for one rDNA copy < 0
+filtered_vars<-subset(filtered_vars, difference >=0) #23245 entries
+
+#remove variants associated with homopolymers (see poly_mers file)
+filtered_vars<-subset(filtered_vars, !(POSITION %in% poly_mers$POSITION)) #21562 entries
+
+#how many entries removed:
+(1-nrow(filtered_vars)/24183)*100
+
+#remove "difference" column
+filtered_vars <- filtered_vars[,1:14]
+```
