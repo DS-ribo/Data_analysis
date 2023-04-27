@@ -1,0 +1,373 @@
+---
+title: "Figure2"
+output: html_document
+---
+
+#Relationship between sequence diversity of the rDNA and the rest of the genome in diploid isolates
+
+Libraries
+```{r}
+library("ggplot2")
+library("dplyr")
+library("ggpubr")
+library("see")
+```
+
+Data
+Since 2n is natural ploidy, and >=3n is strongly enriched in human-related environments, do separately for 2n and >= 3n.
+Exclude 1n since they cannot be considered neither in heterozygosity analysis not LOH
+```{r}
+#already filtered variants
+filtered_vars <- read.table("~/Desktop/work/database/updated_tables/Variants.txt", sep = "\t", header = T)
+
+#heterozygous SNPs from Peter et al, 2018
+snp_info <- read.csv("~/Desktop/work/database/source/table_s8_Peter_etal.csv",
+                           sep = ",",
+                           header = T)
+#change first colname to "NAME"
+colnames(snp_info) <- append(c("NAME"), colnames(snp_info)[-1])
+# NOTE: homozygous have NA (because =0/0 is non-defined (?)
+#to count them - convert NAs to 0's -  do it later if wish to count homozygous together with hetero
+#snp_info[is.na(snp_info)] <- 0
+#there are two Inf values in CEN since the number of hetero SNPs is very low  (==34) - remove it from analysis
+snp_info <- subset(snp_info, NAME != "CEN")
+
+LOH <- read.csv("~/Desktop/work/database/source/table_s7_Peter_etal.csv",
+                           sep = ",",
+                           header = T)
+LOH <- LOH[,c(1,8)]
+colnames(LOH) <- c("NAME", "percentage_loh")
+#remove CEN here as well
+LOH <- subset(LOH, NAME != "CEN")
+
+ploidy <- read.table("~/Desktop/work/database/source/Ploidy_Chr12_aneuploidy_Peter_etal.txt", header = T, sep = "\t")
+ploidy <- ploidy[,-3]
+
+snp_info <- merge(snp_info, ploidy, by = "NAME")
+LOH <- merge(LOH, ploidy, by = "NAME")
+
+#for 2n
+heterozygosity_2n <- subset(snp_info, Ploidy == "2" & !(is.na(heterozygous.SNPs.per.kb.of.heterozygous.regions)))
+LOH_2n <- subset(LOH, Ploidy == "2") #LOH is only for 2n
+homozygous <- subset(snp_info, Ploidy == "2" & is.na(heterozygous.SNPs.per.kb.of.heterozygous.regions)) #some of those are lab-manipulated?
+
+#for 3-5n; LOH is only for 2n(above)
+#AFT and CFS have NA vals - removed here
+#AEC has "Xn" for ploidy = removed here
+heterozygosity_high_n <- subset(snp_info, Ploidy %in% c("3", "4", "5") & !(is.na(heterozygous.SNPs.per.kb.of.heterozygous.regions)))
+
+#check if LOH and heterozygosity are the same isolates
+table(LOH_2n$NAME == heterozygosity_2n$NAME)
+
+#total snp ber kb genome in haploids
+# 5 isolates have annotated heterozygous snps (why?) - remove them?
+snp_total_1n <- subset(snp_info, Ploidy == "1" & X..heterozygous.SNPs == "0")
+
+copy_number <- read.table("~/Desktop/work/rDNA_project/RDN_copy_number.txt", sep = "\t", header = T)
+colnames(copy_number) <- c("NAME", "Ploidy", "ACCESSION", "RDN_mean_haploid", "RDN_total", "RDN_05")
+#AEC has NA - remove
+copy_number <- subset(copy_number, NAME != "AEC")
+copy_number$Ploidy <- as.factor(copy_number$Ploidy)
+```
+Since data also contain VF 100%, this means all rDNA repeats in the isolate are fixed and differ from S288c, and it cannot be considered a polymorphism within the genome and this cannot be used in the analysis as the "rDNA variants". Therefore, take only non-fixed variants: calculate *for each isolate* how many *non-fixed* variants are there. This means: for each isolate, take variants with VF(theoretical_one_rDNA_copy) < VF < 1-VF(theoretical_one_rDNA_copy). For example, if VAR has VF ~ 0.997, but theoretical one-rDNA-copy VF for this isolate is 0.007, this means the VAR is fully fixed at this POS and there is no variation_within_this_genome
+
+```{r}
+#calculate max theoretical VF
+upper_VF <- rep(1,nrow(filtered_vars)) - filtered_vars$one_copy_VF
+#calculate difference between max theoretical VF and observed VF
+difference_up <- upper_VF - filtered_vars$VF
+unfixed_vars <- cbind(filtered_vars, difference_up)
+
+#keep unfixed within each isolate VARs
+unfixed_vars<-subset(unfixed_vars, unfixed_vars$difference_up >= 0)
+
+#calculate number of variants per isolate
+
+var_number <- as.data.frame(table(unfixed_vars$NAME))
+colnames(var_number) <- c("NAME", "RDNA")
+```
+
+Subset data
+```{r}
+#heterozygosity
+#2n
+heterozygosity_2n_all <- merge(var_number, heterozygosity_2n, by = "NAME") 
+heterozygosity_2n_all <- heterozygosity_2n_all[,c("NAME", "RDNA", "heterozygous.SNPs.per.kb.of.heterozygous.regions")]
+#>=3n
+heterozygosity_high_n_all <- merge(var_number, heterozygosity_high_n, by = "NAME")
+heterozygosity_high_n_all <- heterozygosity_high_n_all[,c("NAME", "RDNA", "heterozygous.SNPs.per.kb.of.heterozygous.regions")]
+
+#LOH
+LOH_all <- merge(var_number, LOH_2n, by = "NAME")
+LOH_all <- LOH_all[,c("NAME", "RDNA", "percentage_loh")]
+
+#Homozygous
+homozygous_all <- merge(var_number, homozygous, by = "NAME")
+homozygous_all$heterozygous.SNPs.per.kb.of.heterozygous.regions <- as.factor(rep(0,nrow(homozygous_all)))
+#check sums
+nrow(heterozygosity_2n_all) + nrow(homozygous_all) #693; from Fig 3a in Peter et al 2018 it is 694 but i removed CEN bc of Inf values; proportions of homo- and hetero- in this analysis are the same as in Fig 3a
+
+#for 1n
+haploids <- merge(var_number, snp_total_1n, by = "NAME")
+```
+
+Plot
+```{r}
+###Heterozygous###
+#2n
+p1<-ggplot(heterozygosity_2n_all, aes(heterozygous.SNPs.per.kb.of.heterozygous.regions, RDNA))+
+  geom_point(alpha=0.5, color = "#CC6600", size = 1)+
+  labs(x = "Genome heterozygosity (number of heterozygous SNPs per heterozygous genome)", y = "rDNA heterozygosity (number of non-fixed rDNA variants)")+
+  geom_smooth(method="lm")+
+  stat_cor(method = "pearson", label.x = 4, label.y = 50)+ #from ggpubr
+  ggtitle("SNP heterozygosity")+
+  xlim(0, 5.2)+
+  ylim(0, 60)+
+  theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )
+#exact p.value
+cor.test(heterozygosity_2n_all$heterozygous.SNPs.per.kb.of.heterozygous.regions, heterozygosity_2n_all$RDNA, method = "pearson")$p.value
+
+#LOH
+p2<-ggplot(LOH_all, aes(percentage_loh, RDNA))+
+  geom_point(alpha=0.5, color = "#CC6600", size = 1)+
+  labs(x = "Genome loss of heterozygosity", y = "rDNA heterozygosity (number of non-fixed rDNA variants)")+
+  geom_smooth(method="lm")+
+  stat_cor(method = "pearson", label.x = 0.75, label.y = 40)+ #from ggpubr
+  ggtitle("LOH")+
+  ylim(0, 60)+
+    theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )
+#exact p.value
+cor.test(LOH_all$percentage_loh, LOH_all$RDNA, method = "pearson")$p.value
+
+#higher n
+p4<-ggplot(heterozygosity_high_n_all, aes(heterozygous.SNPs.per.kb.of.heterozygous.regions, RDNA))+
+  geom_point(alpha=0.5, color = "#CC6600", size = 1)+
+  labs(x = "Genome heterozygosity (number of heterozygous SNPs per heterozygous genome)", y = "rDNA heterozygosity (number of non-fixed rDNA variants)")+
+  geom_smooth(method="lm")+
+  stat_cor(method = "pearson", label.x = 5, label.y = 60)+ #from ggpubr
+  ggtitle("SNP heterozygosity")+
+  xlim(0, 7)+
+  ylim(0, 90)+
+  theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )
+
+###Homozygous###
+p3<-ggplot(homozygous_all, aes(x = heterozygous.SNPs.per.kb.of.heterozygous.regions, y = RDNA))+
+  geom_violin(fill="red", alpha = 0.1)+
+  geom_jitter(shape=16, position=position_jitter(0.2), alpha=0.5, color = "#CC6600", size = 1)+
+  geom_boxplot(width=.1, outlier.shape = NA, col = "darkred", fill = "red", alpha = 0.45)+
+  theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+theme(aspect.ratio=16/9)+
+  ylim(0, 70)
+
+plots(p1,p2,p4,n_columns = 2)
+
+p3
+
+#compare number of rDNA variants between homozygous and heterozygous isolates
+wilcox.test(heterozygosity_2n_all$RDNA,homozygous_all$RDNA)$p.value
+```
+Correlation number(non_fixed_rDNA_variants) ~ rDNA_copy_number
+```{r}
+###Haploid strains###
+ggplot(haploids, aes(SNPs.kb.1, RDNA))+
+  geom_point(alpha=0.5, color = "#CC6600", size = 1)+
+  labs(x = "Total number of  SNPs per kb of genome", y = "number of non-fixed rDNA variants")+
+  geom_smooth(method="lm")+
+  stat_cor(method = "pearson", label.x = 4.5, label.y = 30)+ #from ggpubr
+  ggtitle("In haploid strains")+
+  xlim(0, 7)+
+  ylim(0, 50)+
+  theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )
+#no correlation
+
+#check correlation between rDNA copy number and number of rDNA variants
+VAR_copy <- merge(var_number, copy_number, by = "NAME")
+VAR_copy <- select(VAR_copy, NAME, RDNA, RDN_total, Ploidy)
+#NOTE: CEN not removed
+
+#1n
+ggplot(subset(VAR_copy, Ploidy == "1"), aes(RDN_total, RDNA))+
+  geom_point(alpha=0.5, color = "#CC6600", size = 1)+
+  labs(x = "rDNA copy number", y = "Number of non-fixed rDNA variants per isolate")+
+  geom_smooth(method="lm")+
+  stat_cor(method = "pearson", label.x = 4, label.y = 50)+ #from ggpubr
+  ggtitle("Haploids")+
+  #xlim(0, 5.2)+
+  #ylim(0, 60)+
+  theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )
+#2n
+ggplot(subset(VAR_copy, Ploidy == "2"), aes(RDN_total, RDNA))+
+  geom_point(alpha=0.5, color = "#CC6600", size = 1)+
+  labs(x = "rDNA copy number", y = "Number of non-fixed rDNA variants per isolate")+
+  geom_smooth(method="lm")+
+  stat_cor(method = "pearson", label.x = 4, label.y = 50)+ #from ggpubr
+  ggtitle("Diploids")+
+  #xlim(0, 5.2)+
+  #ylim(0, 60)+
+  theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )
+
+#all together (1n to 5n)
+ggplot(VAR_copy, aes(RDN_total, RDNA))+
+  geom_point(alpha=0.5, color = "#CC6600", size = 1)+
+  labs(x = "rDNA copy number", y = "Number of non-fixed rDNA variants per isolate")+
+  geom_smooth(method="lm")+
+  stat_cor(method = "pearson", label.x = 10, label.y = 70)+ #from ggpubr
+  ggtitle("All")+
+  theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  scale_x_continuous(breaks = c(0,100,200,300,400,500,600))+
+  ylim(0,80)
+
+```
+
+Correlation number(ALL_rDNA_variants) ~ rDNA_copy_number. ALL = fixed+non-fixed rDNA variants
+
+```{r}
+all_vars_number <- as.data.frame(table(filtered_vars$NAME))
+colnames(all_vars_number) <- c("NAME", "RDNA")
+ALL_VAR_copy <- merge(all_vars_number, copy_number[,c(1,5)], by = "NAME")
+
+ggplot(ALL_VAR_copy, aes(RDN_total, RDNA))+
+  geom_point(alpha=0.5, color = "#CC6600", size = 1)+
+  labs(x = "rDNA copy number", y = "Total number of rDNA variants per isolate")+
+  geom_smooth(method="lm")+
+  stat_cor(method = "pearson", label.x = 10, label.y = 70)+ #from ggpubr
+  ggtitle("All")+
+  theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  scale_x_continuous(breaks = c(0,100,200,300,400,500,600))+
+  ylim(0,80)
+
+#Try polynomial to compare
+ggplot(ALL_VAR_copy, aes(RDN_total, RDNA))+
+  geom_point(alpha=0.5, color = "#CC6600", size = 1)+
+  labs(x = "rDNA copy number", y = "Total number of rDNA variants per isolate")+
+  geom_smooth(method = "lm", formula = y ~ x + I(x^2))+
+  stat_cor(method = "spearman", label.x = 10, label.y = 70)+ #from ggpubr
+  ggtitle("All")+
+  theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  scale_x_continuous(breaks = c(0,100,200,300,400,500,600))+
+  ylim(0,80)
+```
+#Number of rDNA copies in heterozygous and homozygous diploid isolates
+```{r}
+#check whether rDNA copy number influences the median number of rDNA variants
+VAR_copy_2n <- subset(VAR_copy, Ploidy == "2")
+#remove CEN
+VAR_copy_2n <- subset(VAR_copy_2n, NAME != "CEN")
+
+zygosity <- rep("a", nrow(VAR_copy_2n))
+for (i in 1:nrow(VAR_copy_2n)){
+  if (VAR_copy_2n[i,1] %in% heterozygosity_2n_all[,1]){
+    zygosity[i] <- "Heterozygous"
+  }else{
+    zygosity[i] <- "Homozygous"
+  }
+}
+VAR_copy_2n$Zy <- zygosity
+
+###plot###
+ggplot(VAR_copy_2n, aes(x = Zy, y = RDN_total))+
+  geom_violin(fill="red", alpha = 0.1)+
+  geom_jitter(shape=16, position=position_jitter(0.2), alpha=0.5, color = "#CC6600", size = 1)+
+  geom_boxplot(width=.1, outlier.shape = NA, col = "darkred", fill = "red", alpha = 0.45)+
+  theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+theme(aspect.ratio=16/9)
+
+
+#statistics
+ggqqplot((subset(VAR_copy_2n, Zy == "Heterozygous"))$RDN_total)
+ggqqplot((subset(VAR_copy_2n, Zy == "Homozygous"))$RDN_total)
+median((subset(VAR_copy_2n, Zy == "Heterozygous"))$RDN_total)
+median((subset(VAR_copy_2n, Zy == "Homozygous"))$RDN_total)
+
+#test
+wilcox.test((subset(VAR_copy_2n, Zy == "Heterozygous"))$RDN_total, (subset(VAR_copy_2n, Zy == "Homozygous"))$RDN_total) #p = 0.36; no statistical difference
+
+
+```
+
