@@ -1,0 +1,625 @@
+---
+title: "DNA_RNA_seq_analysis"
+author: "Daniel Sultanov"
+date: "7/21/2022"
+output: html_document
+---
+
+libraries
+```{r}
+library("ggplot2")
+library("see")
+```
+
+data
+```{r}
+isolates <- read.table("~/Desktop/work/database/updated_tables/Variants.txt", sep = "\t", header = T)
+
+#DNA sequenced
+CFA_DNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12267_DNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+CFH_DNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12268_DNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+CBR_DNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12269_DNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+CFG_DNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12270_DNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+ARS_DNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12271_DNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+BGT_DNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12272_DNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+BRB_DNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12273_DNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+ATH_DNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12274_DNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+CGV_DNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12275_DNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+
+#RNA sequenced
+CFA_RNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12267_totalRNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+CFH_RNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12268_totalRNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+CBR_RNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12269_totalRNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+CFG_RNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12270_totalRNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+ARS_RNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12271_totalRNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+BGT_RNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12272_totalRNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+BRB_RNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12273_totalRNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+ATH_RNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12274_totalRNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+CGV_RNA <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/12275_totalRNA_filtered_vcf.txt", sep = "\t", header = T, fill = T)
+
+#coverage
+CFA_DNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12267_DNA_rDNA_coverage.txt", sep = "\t", header = F)
+CFH_DNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12268_DNA_rDNA_coverage.txt", sep = "\t", header = F)
+CBR_DNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12269_DNA_rDNA_coverage.txt", sep = "\t", header = F)
+CFG_DNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12270_DNA_rDNA_coverage.txt", sep = "\t", header = F)
+ARS_DNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12271_DNA_rDNA_coverage.txt", sep = "\t", header = F)
+BGT_DNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12272_DNA_rDNA_coverage.txt", sep = "\t", header = F)
+BRB_DNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12273_DNA_rDNA_coverage.txt", sep = "\t", header = F)
+ATH_DNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12274_DNA_rDNA_coverage.txt", sep = "\t", header = F)
+CGV_DNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12275_DNA_rDNA_coverage.txt", sep = "\t", header = F)
+
+#RNA
+CFA_RNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12267_totalRNA_rDNA_coverage.txt", sep = "\t", header = F)
+CFH_RNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12268_totalRNA_rDNA_coverage.txt", sep = "\t", header = F)
+CBR_RNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12269_totalRNA_rDNA_coverage.txt", sep = "\t", header = F)
+CFG_RNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12270_totalRNA_rDNA_coverage.txt", sep = "\t", header = F)
+ARS_RNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12271_totalRNA_rDNA_coverage.txt", sep = "\t", header = F)
+BGT_RNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12272_totalRNA_rDNA_coverage.txt", sep = "\t", header = F)
+BRB_RNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12273_totalRNA_rDNA_coverage.txt", sep = "\t", header = F)
+ATH_RNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12274_totalRNA_rDNA_coverage.txt", sep = "\t", header = F)
+CGV_RNA_cov <- read.table("~/Desktop/work/rDNA_analysis2/HGCNNBGXM/coverage/12275_totalRNA_rDNA_coverage.txt", sep = "\t", header = F)
+
+
+#homopolymers
+poly_mers <- read.table("~/Desktop/work/rDNA_analysis2/homopolymer_POS.txt", sep = "\t", header = T)
+
+#expected one copy iVF based on calculated total rDNA copy number
+one_copy_VF <- read.table("~/Desktop/work/database/source/expected_one_copy_VF.txt", sep = "\t", header = T)
+
+#rRNA modifications
+rRNA_mod<-read.delim("~/Desktop/work/database/source/rRNA_modifications.txt",
+                     header=T,
+                     comment.char = "#",
+                     sep="\t")
+##convert COORDINATE to POS
+POS_18S <- seq(8437, 6638, -1)
+POS_25S <- seq(5886, 2491, -1)
+POS_58S <- seq(6276, 6119, -1)
+POS_5S <- seq(1244, 1364)
+
+POS_mod <- rep(0, nrow(rRNA_mod))
+for (i in 1:length(POS_mod)){
+  if (rRNA_mod[i,1] == "18S") {
+    POS_mod[i] <- (seq(8437, 6638, -1))[rRNA_mod[i,2]]
+  }else if (rRNA_mod[i,1] == "25S"){
+    POS_mod[i] <- (seq(5886, 2491, -1))[rRNA_mod[i,2]]
+  }else if (rRNA_mod[i,1] == "5S"){
+    POS_mod[i] <- (seq(1244, 1364))[rRNA_mod[i,2]]
+  }else if (rRNA_mod[i,1] == "5.8S"){
+    POS_mod[i] <- (seq(6276, 6119, -1))[rRNA_mod[i,2]]
+  }
+}
+```
+
+plot coverage
+```{r}
+plot(CFA_DNA_cov$V2,CFA_DNA_cov$V3, type="l",  las = 1, col = "red", ylim = c(0,60000), xlab = "Position, nt", ylab = "", main = "DNA-seq coverage")
+mtext("rDNA coverage", side = 4)
+lines(CFH_DNA_cov$V2,CFH_DNA_cov$V3, col = "orange",  las = 1)
+lines(CBR_DNA_cov$V2,CBR_DNA_cov$V3, col = "darkgreen",  las = 1)
+lines(CFG_DNA_cov$V2,CFG_DNA_cov$V3, col = "lightblue",  las = 1) #wrong isolate?
+lines(ARS_DNA_cov$V2,ARS_DNA_cov$V3, col = "violet",  las = 1)
+lines(BGT_DNA_cov$V2,BGT_DNA_cov$V3, col = "maroon",  las = 1)
+lines(BRB_DNA_cov$V2,BRB_DNA_cov$V3, col = "blue",  las = 1)
+lines(ATH_DNA_cov$V2,ATH_DNA_cov$V3, col = "hotpink",  las = 1)
+lines(CGV_DNA_cov$V2,CGV_DNA_cov$V3, col = "darkgrey",  las = 1)
+rect(1244, 0, 1364, 650000, col=alpha("green", 0.1), border = NA) #5S
+rect(2491, 0, 5886, 650000, col=alpha("green", 0.1), border = NA) #25S
+rect(6119, 0, 6276, 650000, col=alpha("green", 0.1), border = NA) #5.8S
+rect(6638, 0, 8437, 650000, col=alpha("green", 0.1), border = NA) #18S
+rect(2280, 0, 2490, 650000, col=alpha("orange", 0.12), border = NA) #ETS2
+rect(5887, 0, 6118, 650000, col=alpha("orange", 0.12), border = NA) #ITS2
+rect(6277, 0, 6637, 650000, col=alpha("orange", 0.12), border = NA) #ITS1
+rect(8438, 0, 9137, 650000, col=alpha("orange", 0.12), border = NA) #ETS1
+
+#smoothed
+plot(lowess(CFA_DNA_cov$V2,CFA_DNA_cov$V3, f = 1/200), type="l",  las = 1, lwd = 1.5, col = "red", ylim = c(0,60000), xlab = "Position, nt", ylab = "", main = "DNA-seq coverage")
+mtext("rDNA coverage", side = 4)
+lines(lowess(CFH_DNA_cov$V2,CFH_DNA_cov$V3, f = 1/200), col = "orange",  las = 1, lwd = 1.5)
+lines(lowess(CBR_DNA_cov$V2,CBR_DNA_cov$V3, f = 1/200), col = "darkgreen",  las = 1, lwd = 1.5)
+lines(lowess(ARS_DNA_cov$V2,ARS_DNA_cov$V3, f = 1/200), col = "violet",  las = 1, lwd = 1.5)
+lines(lowess(BGT_DNA_cov$V2,BGT_DNA_cov$V3, f = 1/200), col = "maroon",  las = 1, lwd = 1.5)
+lines(lowess(BRB_DNA_cov$V2,BRB_DNA_cov$V3, f = 1/200), col = "blue",  las = 1, lwd = 1.5)
+lines(lowess(ATH_DNA_cov$V2,ATH_DNA_cov$V3, f = 1/200), col = "hotpink",  las = 1, lwd = 1.5)
+lines(lowess(CGV_DNA_cov$V2,CGV_DNA_cov$V3, f = 1/200), col = "darkgrey",  las = 1, lwd = 1.5)
+lines(lowess(CFG_DNA_cov$V2,CFG_DNA_cov$V3, f = 1/200), col = "lightblue",  las = 1, lwd = 1.5) #wrong isolate?
+rect(1244, 0, 1364, 650000, col=alpha("green", 0.1), border = NA) #5S
+rect(2491, 0, 5886, 650000, col=alpha("green", 0.1), border = NA) #25S
+rect(6119, 0, 6276, 650000, col=alpha("green", 0.1), border = NA) #5.8S
+rect(6638, 0, 8437, 650000, col=alpha("green", 0.1), border = NA) #18S
+rect(2280, 0, 2490, 650000, col=alpha("orange", 0.12), border = NA) #ETS2
+rect(5887, 0, 6118, 650000, col=alpha("orange", 0.12), border = NA) #ITS2
+rect(6277, 0, 6637, 650000, col=alpha("orange", 0.12), border = NA) #ITS1
+rect(8438, 0, 9137, 650000, col=alpha("orange", 0.12), border = NA) #ETS1
+
+#RNA-seq coverage
+plot(lowess(CFA_RNA_cov$V2,CFA_RNA_cov$V3, f = 1/200), type="l",  las = 1, lwd = 1.5, col = "red", ylim = c(0,5000000), xlab = "Position, nt", ylab = "", main = "RNA-seq coverage")
+mtext("rDNA coverage", side = 4)
+lines(lowess(CFH_RNA_cov$V2,CFH_RNA_cov$V3, f = 1/200), col = "orange",  las = 1, lwd = 1.5)
+lines(lowess(CBR_RNA_cov$V2,CBR_RNA_cov$V3, f = 1/200), col = "darkgreen",  las = 1, lwd = 1.5)
+lines(lowess(ARS_RNA_cov$V2,ARS_RNA_cov$V3, f = 1/200), col = "violet",  las = 1, lwd = 1.5)
+lines(lowess(BGT_RNA_cov$V2,BGT_RNA_cov$V3, f = 1/200), col = "maroon",  las = 1, lwd = 1.5)
+lines(lowess(BRB_RNA_cov$V2,BRB_RNA_cov$V3, f = 1/200), col = "blue",  las = 1, lwd = 1.5)
+lines(lowess(ATH_RNA_cov$V2,ATH_RNA_cov$V3, f = 1/200), col = "hotpink",  las = 1, lwd = 1.5)
+lines(lowess(CGV_RNA_cov$V2,CGV_RNA_cov$V3, f = 1/200), col = "darkgrey",  las = 1, lwd = 1.5)
+lines(lowess(CFG_RNA_cov$V2,CFG_RNA_cov$V3, f = 1/200), col = "lightblue",  las = 1) #wrong isolate?
+rect(1244, 0, 1364, 5000000, col=alpha("green", 0.1), border = NA) #5S
+rect(2491, 0, 5886, 5000000, col=alpha("green", 0.1), border = NA) #25S
+rect(6119, 0, 6276, 5000000, col=alpha("green", 0.1), border = NA) #5.8S
+rect(6638, 0, 8437, 5000000, col=alpha("green", 0.1), border = NA) #18S
+rect(2280, 0, 2490, 5000000, col=alpha("orange", 0.12), border = NA) #ETS2
+rect(5887, 0, 6118, 5000000, col=alpha("orange", 0.12), border = NA) #ITS2
+rect(6277, 0, 6637, 5000000, col=alpha("orange", 0.12), border = NA) #ITS1
+rect(8438, 0, 9137, 5000000, col=alpha("orange", 0.12), border = NA) #ETS1
+
+#plot CFA separately here because was very low library concentration in the pool
+plot(lowess(CFA_RNA_cov$V2,CFA_RNA_cov$V3, f = 1/200), type="l",  las = 1, lwd = 1.5, col = "red", xlab = "Position, nt", ylab = "", main = "RNA-seq coverage CFA")
+rect(1244, 0, 1364, 10000, col=alpha("green", 0.1), border = NA) #5S
+rect(2491, 0, 5886, 10000, col=alpha("green", 0.1), border = NA) #25S
+rect(6119, 0, 6276, 10000, col=alpha("green", 0.1), border = NA) #5.8S
+rect(6638, 0, 8437, 10000, col=alpha("green", 0.1), border = NA) #18S
+rect(2280, 0, 2490, 10000, col=alpha("orange", 0.12), border = NA) #ETS2
+rect(5887, 0, 6118, 10000, col=alpha("orange", 0.12), border = NA) #ITS2
+rect(6277, 0, 6637, 10000, col=alpha("orange", 0.12), border = NA) #ITS1
+rect(8438, 0, 9137, 10000, col=alpha("orange", 0.12), border = NA) #ETS1
+
+#plot zoomed-in for RNAseq
+plot(lowess(CFA_RNA_cov$V2,CFA_RNA_cov$V3, f = 1/200), type="l",  las = 1, lwd = 1.5, col = "red", ylim = c(0,1000), xlab = "Position, nt", ylab = "", main = "RNA-seq coverage")
+mtext("rDNA coverage", side = 4)
+lines(lowess(CFH_RNA_cov$V2,CFH_RNA_cov$V3, f = 1/200), col = "orange",  las = 1, lwd = 1.5)
+lines(lowess(CBR_RNA_cov$V2,CBR_RNA_cov$V3, f = 1/200), col = "darkgreen",  las = 1, lwd = 1.5)
+lines(lowess(ARS_RNA_cov$V2,ARS_RNA_cov$V3, f = 1/200), col = "violet",  las = 1, lwd = 1.5)
+lines(lowess(BGT_RNA_cov$V2,BGT_RNA_cov$V3, f = 1/200), col = "maroon",  las = 1, lwd = 1.5)
+lines(lowess(BRB_RNA_cov$V2,BRB_RNA_cov$V3, f = 1/200), col = "blue",  las = 1, lwd = 1.5)
+lines(lowess(ATH_RNA_cov$V2,ATH_RNA_cov$V3, f = 1/200), col = "hotpink",  las = 1, lwd = 1.5)
+lines(lowess(CGV_RNA_cov$V2,CGV_RNA_cov$V3, f = 1/200), col = "darkgrey",  las = 1, lwd = 1.5)
+lines(lowess(CFG_RNA_cov$V2,CFG_RNA_cov$V3, f = 1/200), col = "lightblue",  las = 1) #wrong isolate?
+rect(1244, 0, 1364, 1000, col=alpha("green", 0.1), border = NA) #5S
+rect(2491, 0, 5886, 1000, col=alpha("green", 0.1), border = NA) #25S
+rect(6119, 0, 6276, 1000, col=alpha("green", 0.1), border = NA) #5.8S
+rect(6638, 0, 8437, 1000, col=alpha("green", 0.1), border = NA) #18S
+rect(2280, 0, 2490, 1000, col=alpha("orange", 0.12), border = NA) #ETS2
+rect(5887, 0, 6118, 1000, col=alpha("orange", 0.12), border = NA) #ITS2
+rect(6277, 0, 6637, 1000, col=alpha("orange", 0.12), border = NA) #ITS1
+rect(8438, 0, 9137, 1000, col=alpha("orange", 0.12), border = NA) #ETS1
+
+```
+
+filter data
+```{r}
+#homopolymer tracts
+CFA_DNA <- subset(CFA_DNA, !(POS %in% poly_mers$POSITION))
+CFH_DNA <- subset(CFH_DNA, !(POS %in% poly_mers$POSITION))
+CBR_DNA <- subset(CBR_DNA, !(POS %in% poly_mers$POSITION))
+CFG_DNA <- subset(CFG_DNA, !(POS %in% poly_mers$POSITION))
+ARS_DNA <- subset(ARS_DNA, !(POS %in% poly_mers$POSITION))
+BGT_DNA <- subset(BGT_DNA, !(POS %in% poly_mers$POSITION))
+BRB_DNA <- subset(BRB_DNA, !(POS %in% poly_mers$POSITION))
+ATH_DNA <- subset(ATH_DNA, !(POS %in% poly_mers$POSITION))
+CGV_DNA <- subset(CGV_DNA, !(POS %in% poly_mers$POSITION))
+
+#iVFs below one rDNA copy
+#can be coded another way - see Data_filtering2.Rmd
+CFA_DNA <- subset(CFA_DNA, CFA_DNA$AF > one_copy_VF[one_copy_VF$NAME=="CFA",2])
+CFH_DNA <- subset(CFH_DNA, CFH_DNA$AF > one_copy_VF[one_copy_VF$NAME=="CFH",2])
+CBR_DNA <- subset(CBR_DNA, CBR_DNA$AF > one_copy_VF[one_copy_VF$NAME=="CBR",2])
+CFG_DNA <- subset(CFG_DNA, CFG_DNA$AF > one_copy_VF[one_copy_VF$NAME=="CFG",2])
+ARS_DNA <- subset(ARS_DNA, ARS_DNA$AF > one_copy_VF[one_copy_VF$NAME=="ARS",2])
+BGT_DNA <- subset(BGT_DNA, BGT_DNA$AF > one_copy_VF[one_copy_VF$NAME=="BGT",2])
+BRB_DNA <- subset(BRB_DNA, BRB_DNA$AF > one_copy_VF[one_copy_VF$NAME=="BRB",2])
+ATH_DNA <- subset(ATH_DNA, ATH_DNA$AF > one_copy_VF[one_copy_VF$NAME=="ATH",2])
+CGV_DNA <- subset(CGV_DNA, CGV_DNA$AF > one_copy_VF[one_copy_VF$NAME=="CGV",2])
+```
+
+Check if variants from my DNA-seq are the same as from Peter et al.'s DNA-seq *before filtering for SB*
+```{r}
+table(paste(CFA_DNA$REF, CFA_DNA$POS, CFA_DNA$ALT) %in% paste((subset(isolates, NAME == "CFA"))$REFERENCE, (subset(isolates, NAME == "CFA"))$POSITION, (subset(isolates, NAME == "CFA"))$ISOLATE)) #2 FALSE
+table(paste(CFH_DNA$REF, CFH_DNA$POS, CFH_DNA$ALT) %in% paste((subset(isolates, NAME == "CFH"))$REFERENCE, (subset(isolates, NAME == "CFH"))$POSITION, (subset(isolates, NAME == "CFH"))$ISOLATE)) #9 FALSE
+table(paste(CBR_DNA$REF, CBR_DNA$POS, CBR_DNA$ALT) %in% paste((subset(isolates, NAME == "CBR"))$REFERENCE, (subset(isolates, NAME == "CBR"))$POSITION, (subset(isolates, NAME == "CBR"))$ISOLATE)) #5 FALSE
+table(paste(CFG_DNA$REF, CFG_DNA$POS, CFG_DNA$ALT) %in% paste((subset(isolates, NAME == "CFG"))$REFERENCE, (subset(isolates, NAME == "CFG"))$POSITION, (subset(isolates, NAME == "CFG"))$ISOLATE)) #14 FALSE - doesnt match the isolate
+table(paste(ARS_DNA$REF, ARS_DNA$POS, ARS_DNA$ALT) %in% paste((subset(isolates, NAME == "ARS"))$REFERENCE, (subset(isolates, NAME == "ARS"))$POSITION, (subset(isolates, NAME == "ARS"))$ISOLATE)) #3 FALSE
+table(paste(BGT_DNA$REF, BGT_DNA$POS, BGT_DNA$ALT) %in% paste((subset(isolates, NAME == "BGT"))$REFERENCE, (subset(isolates, NAME == "BGT"))$POSITION, (subset(isolates, NAME == "BGT"))$ISOLATE)) #3 FALSE
+table(paste(BRB_DNA$REF, BRB_DNA$POS, BRB_DNA$ALT) %in% paste((subset(isolates, NAME == "BRB"))$REFERENCE, (subset(isolates, NAME == "BRB"))$POSITION, (subset(isolates, NAME == "BRB"))$ISOLATE)) #all TRUE
+table(paste(ATH_DNA$REF, ATH_DNA$POS, ATH_DNA$ALT) %in% paste((subset(isolates, NAME == "ATH"))$REFERENCE, (subset(isolates, NAME == "ATH"))$POSITION, (subset(isolates, NAME == "ATH"))$ISOLATE)) #all TRUE
+table(paste(CGV_DNA$REF, CGV_DNA$POS, CGV_DNA$ALT) %in% paste((subset(isolates, NAME == "CGV"))$REFERENCE, (subset(isolates, NAME == "CGV"))$POSITION, (subset(isolates, NAME == "CGV"))$ISOLATE)) #all TRUE
+```
+
+plot w/o filtering for SB
+```{r}
+plot((subset(isolates, NAME == "CFA"))$POSITION, (subset(isolates, NAME == "CFA"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "CFA")
+points(CFA_DNA$POS, CFA_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "CFH"))$POSITION, (subset(isolates, NAME == "CFH"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "CFH")
+points(CFH_DNA$POS, CFH_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "CBR"))$POSITION, (subset(isolates, NAME == "CBR"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "CBR")
+points(CBR_DNA$POS, CBR_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "CFG"))$POSITION, (subset(isolates, NAME == "CFG"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "CFG")
+points(CFG_DNA$POS, CFG_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "ARS"))$POSITION, (subset(isolates, NAME == "ARS"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "ARS")
+points(ARS_DNA$POS, ARS_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "BGT"))$POSITION, (subset(isolates, NAME == "BGT"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "BGT")
+points(BGT_DNA$POS, BGT_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "BRB"))$POSITION, (subset(isolates, NAME == "BRB"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "BRB")
+points(BRB_DNA$POS, BRB_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "ATH"))$POSITION, (subset(isolates, NAME == "ATH"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "ATH")
+points(ATH_DNA$POS, ATH_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "CGV"))$POSITION, (subset(isolates, NAME == "CGV"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "CGV")
+points(CGV_DNA$POS, CGV_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+```
+
+plot with filtering for SB
+```{r}
+#strand bias - remove top 10%
+CFA_DNA <- subset(CFA_DNA, !(SB  %in% sort(CFA_DNA$SB, decreasing = T)[1:round(length(CFA_DNA$SB)*0.1)]))
+CFH_DNA <- subset(CFH_DNA, !(SB  %in% sort(CFH_DNA$SB, decreasing = T)[1:round(length(CFH_DNA$SB)*0.1)]))
+CBR_DNA <- subset(CBR_DNA, !(SB  %in% sort(CBR_DNA$SB, decreasing = T)[1:round(length(CBR_DNA$SB)*0.1)]))
+CFG_DNA <- subset(CFG_DNA, !(SB  %in% sort(CFG_DNA$SB, decreasing = T)[1:round(length(CFG_DNA$SB)*0.1)]))
+ARS_DNA <- subset(ARS_DNA, !(SB  %in% sort(ARS_DNA$SB, decreasing = T)[1:round(length(ARS_DNA$SB)*0.1)]))
+BGT_DNA <- subset(BGT_DNA, !(SB  %in% sort(BGT_DNA$SB, decreasing = T)[1:round(length(BGT_DNA$SB)*0.1)]))
+BRB_DNA <- subset(BRB_DNA, !(SB  %in% sort(BRB_DNA$SB, decreasing = T)[1:round(length(BRB_DNA$SB)*0.1)]))
+ATH_DNA <- subset(ATH_DNA, !(SB  %in% sort(ATH_DNA$SB, decreasing = T)[1:round(length(ATH_DNA$SB)*0.1)]))
+CGV_DNA <- subset(CGV_DNA, !(SB  %in% sort(CGV_DNA$SB, decreasing = T)[1:round(length(CGV_DNA$SB)*0.1)]))
+```
+
+Check if variants from my DNA-seq are the same as from Peter et al.'s DNA-seq *after filtering for SB*
+```{r}
+table(paste(CFA_DNA$REF, CFA_DNA$POS, CFA_DNA$ALT) %in% paste((subset(isolates, NAME == "CFA"))$REFERENCE, (subset(isolates, NAME == "CFA"))$POSITION, (subset(isolates, NAME == "CFA"))$ISOLATE)) #all TRUE
+table(paste(CFH_DNA$REF, CFH_DNA$POS, CFH_DNA$ALT) %in% paste((subset(isolates, NAME == "CFH"))$REFERENCE, (subset(isolates, NAME == "CFH"))$POSITION, (subset(isolates, NAME == "CFH"))$ISOLATE)) #7 FALSE
+table(paste(CBR_DNA$REF, CBR_DNA$POS, CBR_DNA$ALT) %in% paste((subset(isolates, NAME == "CBR"))$REFERENCE, (subset(isolates, NAME == "CBR"))$POSITION, (subset(isolates, NAME == "CBR"))$ISOLATE)) #3 FALSE
+table(paste(CFG_DNA$REF, CFG_DNA$POS, CFG_DNA$ALT) %in% paste((subset(isolates, NAME == "CFG"))$REFERENCE, (subset(isolates, NAME == "CFG"))$POSITION, (subset(isolates, NAME == "CFG"))$ISOLATE)) #12 FALSE - doesnt match the isolate
+table(paste(ARS_DNA$REF, ARS_DNA$POS, ARS_DNA$ALT) %in% paste((subset(isolates, NAME == "ARS"))$REFERENCE, (subset(isolates, NAME == "ARS"))$POSITION, (subset(isolates, NAME == "ARS"))$ISOLATE)) #all TRUE
+table(paste(BGT_DNA$REF, BGT_DNA$POS, BGT_DNA$ALT) %in% paste((subset(isolates, NAME == "BGT"))$REFERENCE, (subset(isolates, NAME == "BGT"))$POSITION, (subset(isolates, NAME == "BGT"))$ISOLATE)) #2 FALSE
+table(paste(BRB_DNA$REF, BRB_DNA$POS, BRB_DNA$ALT) %in% paste((subset(isolates, NAME == "BRB"))$REFERENCE, (subset(isolates, NAME == "BRB"))$POSITION, (subset(isolates, NAME == "BRB"))$ISOLATE)) #all TRUE
+table(paste(ATH_DNA$REF, ATH_DNA$POS, ATH_DNA$ALT) %in% paste((subset(isolates, NAME == "ATH"))$REFERENCE, (subset(isolates, NAME == "ATH"))$POSITION, (subset(isolates, NAME == "ATH"))$ISOLATE)) #all TRUE
+table(paste(CGV_DNA$REF, CGV_DNA$POS, CGV_DNA$ALT) %in% paste((subset(isolates, NAME == "CGV"))$REFERENCE, (subset(isolates, NAME == "CGV"))$POSITION, (subset(isolates, NAME == "CGV"))$ISOLATE)) #all TRUE
+```
+plot
+```{r}
+plot((subset(isolates, NAME == "CFA"))$POSITION, (subset(isolates, NAME == "CFA"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "CFA")
+points(CFA_DNA$POS, CFA_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "CFH"))$POSITION, (subset(isolates, NAME == "CFH"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "CFH")
+points(CFH_DNA$POS, CFH_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "CBR"))$POSITION, (subset(isolates, NAME == "CBR"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "CBR")
+points(CBR_DNA$POS, CBR_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "CFG"))$POSITION, (subset(isolates, NAME == "CFG"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "CFG")
+points(CFG_DNA$POS, CFG_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "ARS"))$POSITION, (subset(isolates, NAME == "ARS"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "ARS")
+points(ARS_DNA$POS, ARS_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "BGT"))$POSITION, (subset(isolates, NAME == "BGT"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "BGT")
+points(BGT_DNA$POS, BGT_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "BRB"))$POSITION, (subset(isolates, NAME == "BRB"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "BRB")
+points(BRB_DNA$POS, BRB_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "ATH"))$POSITION, (subset(isolates, NAME == "ATH"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "ATH")
+points(ATH_DNA$POS, ATH_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+plot((subset(isolates, NAME == "CGV"))$POSITION, (subset(isolates, NAME == "CGV"))$VF*100, col = alpha("maroon", 0.7), pch = 15, main = "CGV")
+points(CGV_DNA$POS, CGV_DNA$AF*100, col = alpha("blue", 0.7), pch = 18)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+```
+SB affect variants in NTS and ETS regions but not in rRNA regions
+One DNA seq from isolate CFG is discordant (*maybe* seems to have been the wrong isolate along the process?)
+
+##plot correlation of variant in *rRNA regions only for the GAC region* between paper's DNA seq and my DNA seq
+```{r}
+#here all rRNA regions
+#my data
+CFA_rna_region <- subset(CFA_DNA, POS %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+CFH_rna_region <- subset(CFH_DNA, POS %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+CBR_rna_region <- subset(CBR_DNA, POS %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+#CFG_rna_region <- subset(CFG_DNA, POS %in% c(1244:1364,2491:5886,6119:6276,6638:8437)) wrong isolate?
+ARS_rna_region <- subset(ARS_DNA, POS %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+BGT_rna_region <- subset(BGT_DNA, POS %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+BRB_rna_region <- subset(BRB_DNA, POS %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+ATH_rna_region <- subset(ATH_DNA, POS %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+CGV_rna_region <- subset(CGV_DNA, POS %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+
+#from Peter et al
+CFA_rna_region_Peter <- subset(isolates, NAME == "CFA" & POSITION %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+CFH_rna_region_Peter <- subset(isolates, NAME == "CFH" & POSITION %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+CBR_rna_region_Peter <- subset(isolates, NAME == "CBR" & POSITION %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+#CFG_rna_region_Peter <- subset(isolates, NAME == "CFG" & POSITION %in% c(1244:1364,2491:5886,6119:6276,6638:8437)) wrong isolate?
+ARS_rna_region_Peter <- subset(isolates, NAME == "ARS" & POSITION %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+BGT_rna_region_Peter <- subset(isolates, NAME == "BGT" & POSITION %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+BRB_rna_region_Peter <- subset(isolates, NAME == "BRB" & POSITION %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+ATH_rna_region_Peter <- subset(isolates, NAME == "ATH" & POSITION %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+CGV_rna_region_Peter <- subset(isolates, NAME == "CGV" & POSITION %in% c(1244:1364,2491:5886,6119:6276,6638:8437))
+
+#check if variants are the same (did it by looking at the tables):
+#CFA == TRUE
+#CFH == TRUE
+#CBR == TRUE
+#CFG == wrong isolate?
+#ARS == TRUE
+#BGT == TRUE
+#BRB == TRUE
+#ATH == TRUE; one very low iVFs in Peter's - on the verge of detection and it is outside of GAC region
+#CGV == TRUE
+
+#make table for GAC variants - without "CFG"
+CFA_GAC <- subset(CFA_DNA, POS %in% c(4604:4661))
+CFH_GAC <- subset(CFH_DNA, POS %in% c(4604:4661))
+CBR_GAC <- subset(CBR_DNA, POS %in% c(4604:4661))
+ARS_GAC <- subset(ARS_DNA, POS %in% c(4604:4661))
+BGT_GAC <- subset(BGT_DNA, POS %in% c(4604:4661))
+BRB_GAC <- subset(BRB_DNA, POS %in% c(4604:4661))
+ATH_GAC <- subset(ATH_DNA, POS %in% c(4604:4661))
+CGV_GAC <- subset(CGV_DNA, POS %in% c(4604:4661))
+
+#without CFG
+GAC_DNAseq <- rbind(CFA_GAC, CFH_GAC, CBR_GAC, ARS_GAC, BGT_GAC, BRB_GAC, ATH_GAC, CGV_GAC)
+GAC_DNAseq <- GAC_DNAseq[,c(1,3,5,6,10)]
+GAC_DNAseq$NAME <- c("CFA", "CFH", "CFH", "CBR", "ARS", "BGT", "BRB", "ATH", "CGV")
+colnames(GAC_DNAseq) <- c("SEQUENCE_NAME", "POSITION", "REFERENCE", "ISOLATE", "VF", "NAME")
+
+CFA_GAC_Peter <- subset(isolates, NAME == "CFA" & POSITION %in% c(4604:4661))
+CFH_GAC_Peter <- subset(isolates, NAME == "CFH" & POSITION %in% c(4604:4661))
+CBR_GAC_Peter <- subset(isolates, NAME == "CBR" & POSITION %in% c(4604:4661))
+ARS_GAC_Peter <- subset(isolates, NAME == "ARS" & POSITION %in% c(4604:4661))
+BGT_GAC_Peter <- subset(isolates, NAME == "BGT" & POSITION %in% c(4604:4661))
+BRB_GAC_Peter <- subset(isolates, NAME == "BRB" & POSITION %in% c(4604:4661))
+ATH_GAC_Peter <- subset(isolates, NAME == "ATH" & POSITION %in% c(4604:4661))
+CGV_GAC_Peter <- subset(isolates, NAME == "CGV" & POSITION %in% c(4604:4661))
+
+GAC_DNAseq_Peter <- rbind(CFA_GAC_Peter, CFH_GAC_Peter, CBR_GAC_Peter, ARS_GAC_Peter, BGT_GAC_Peter, BRB_GAC_Peter, ATH_GAC_Peter, CGV_GAC_Peter)
+
+
+GAC_data <- merge(GAC_DNAseq, GAC_DNAseq_Peter, by = c("NAME", "REFERENCE", "POSITION", "ISOLATE"))
+GAC_data <- dplyr::select(GAC_data, NAME, SEQUENCE_NAME, ACCESSION, REFERENCE, POSITION, ISOLATE, VF.x, VF.y)
+colnames(GAC_data) <- c("NAME", "SEQUENCE_NAME_SULTANOV", "ACCESSION_PETER", "REFERENCE", "POSITION", "ISOLATE", "VF_SULTANOV", "VF_PETER")
+
+plot(GAC_data$VF_SULTANOV~GAC_data$VF_PETER, pch = 16, col = "darkblue")
+
+DNA <- ggplot(GAC_data, aes(VF_PETER*100, VF_SULTANOV*100))+
+  geom_smooth(method="lm")+
+  ggpubr::stat_cor(method = "pearson", label.x = 10, label.y = 30)+ #from ggpubr
+  geom_point(alpha=0.8, color = "#CC6600", size = 2)+
+  ggtitle("variants in GAC from DNA-seq data")+
+  theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        aspect.ratio = 1
+        )+
+  scale_x_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35))+
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35))+
+  geom_abline(intercept = 0)
+```
+#RNA-seq
+```{r}
+#filter
+CFA_RNA <- subset(CFA_RNA, !(POS %in% poly_mers$POSITION))
+CFH_RNA <- subset(CFH_RNA, !(POS %in% poly_mers$POSITION))
+CBR_RNA <- subset(CBR_RNA, !(POS %in% poly_mers$POSITION))
+CFG_RNA <- subset(CFG_RNA, !(POS %in% poly_mers$POSITION))
+ARS_RNA <- subset(ARS_RNA, !(POS %in% poly_mers$POSITION))
+BGT_RNA <- subset(BGT_RNA, !(POS %in% poly_mers$POSITION))
+BRB_RNA <- subset(BRB_RNA, !(POS %in% poly_mers$POSITION))
+ATH_RNA <- subset(ATH_RNA, !(POS %in% poly_mers$POSITION))
+CGV_RNA <- subset(CGV_RNA, !(POS %in% poly_mers$POSITION))
+
+
+#note: no one-copy rDNA threshold b/c can be disproportionally expressed potentially?
+
+#CFA
+plot((subset(isolates, NAME == "CFA"))$POSITION, (subset(isolates, NAME == "CFA"))$VF*100, col = alpha("dodgerblue3", 0.9), pch = 15, main = "CFA")
+points(CFA_RNA$POS, CFA_RNA$AF*100, col = alpha("magenta2", 1), pch = 18)
+abline(v = POS_mod, lwd = 0.5, col = "hotpink") #show where rRNA is modified -> might be a problem for rRNA seq (RT)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+#CFH
+plot((subset(isolates, NAME == "CFH"))$POSITION, (subset(isolates, NAME == "CFH"))$VF*100, col = alpha("dodgerblue3", 0.9), pch = 15, main = "CFH")
+points(CFH_RNA$POS, CFH_RNA$AF*100, col = alpha("magenta2", 1), pch = 18)
+abline(v = POS_mod, lwd = 0.5, col = "hotpink") #show where rRNA is modified -> might be a problem for rRNA seq (RT)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+#CBR
+plot((subset(isolates, NAME == "CBR"))$POSITION, (subset(isolates, NAME == "CBR"))$VF*100, col = alpha("dodgerblue3", 0.9), pch = 15, main = "CBR")
+points(CBR_RNA$POS, CBR_RNA$AF*100, col = alpha("magenta2", 1), pch = 18)
+abline(v = POS_mod, lwd = 0.5, col = "hotpink") #show where rRNA is modified -> might be a problem for rRNA seq (RT)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+#CFG - wrong isolate?
+plot((subset(isolates, NAME == "CFG"))$POSITION, (subset(isolates, NAME == "CFG"))$VF*100, col = alpha("dodgerblue3", 0.9), pch = 15, main = "CFG")
+points(CFG_RNA$POS, CFG_RNA$AF*100, col = alpha("magenta2", 1), pch = 18)
+abline(v = POS_mod, lwd = 0.5, col = "hotpink") #show where rRNA is modified -> might be a problem for rRNA seq (RT)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+#ARS
+plot((subset(isolates, NAME == "ARS"))$POSITION, (subset(isolates, NAME == "ARS"))$VF*100, col = alpha("dodgerblue3", 0.9), pch = 15, main = "ARS")
+points(ARS_RNA$POS, ARS_RNA$AF*100, col = alpha("magenta2", 1), pch = 18)
+abline(v = POS_mod, lwd = 0.5, col = "hotpink") #show where rRNA is modified -> might be a problem for rRNA seq (RT)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+#BGT
+plot((subset(isolates, NAME == "BGT"))$POSITION, (subset(isolates, NAME == "BGT"))$VF*100, col = alpha("dodgerblue3", 0.9), pch = 15, main = "BGT")
+points(BGT_RNA$POS, BGT_RNA$AF*100, col = alpha("magenta2", 1), pch = 18)
+abline(v = POS_mod, lwd = 0.5, col = "hotpink") #show where rRNA is modified -> might be a problem for rRNA seq (RT)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+#BRB
+plot((subset(isolates, NAME == "BRB"))$POSITION, (subset(isolates, NAME == "BRB"))$VF*100, col = alpha("dodgerblue3", 0.9), pch = 15, main = "BRB")
+points(BRB_RNA$POS, BRB_RNA$AF*100, col = alpha("magenta2", 1), pch = 18)
+abline(v = POS_mod, lwd = 0.5, col = "hotpink") #show where rRNA is modified -> might be a problem for rRNA seq (RT)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+#ATH
+plot((subset(isolates, NAME == "ATH"))$POSITION, (subset(isolates, NAME == "ATH"))$VF*100, col = alpha("dodgerblue3", 0.9), pch = 15, main = "ATH")
+points(ATH_RNA$POS, ATH_RNA$AF*100, col = alpha("magenta2", 1), pch = 18)
+abline(v = POS_mod, lwd = 0.5, col = "hotpink") #show where rRNA is modified -> might be a problem for rRNA seq (RT)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+#CGV
+plot((subset(isolates, NAME == "CGV"))$POSITION, (subset(isolates, NAME == "CGV"))$VF*100, col = alpha("dodgerblue3", 0.6), pch = 15, main = "CGV")
+points(CGV_RNA$POS, CGV_RNA$AF*100, col = alpha("magenta2", 1), pch = 18)
+abline(v = POS_mod, lwd = 0.5, col = "hotpink") #show where rRNA is modified -> might be a problem for rRNA seq (RT)
+rect(1244, 0, 1364, 100, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.2), border = NA) #18S
+
+#add the rest of the isolates when done running on the hpc
+CFA_RNA_GAC <- subset(CFA_RNA, POS %in% c(4604:4661))
+CFH_RNA_GAC <- subset(CFH_RNA, POS %in% c(4604:4661))
+CBR_RNA_GAC <- subset(CBR_RNA, POS %in% c(4604:4661))
+CFG_RNA_GAC <- subset(CFG_RNA, POS %in% c(4604:4661))
+ARS_RNA_GAC <- subset(ARS_RNA, POS %in% c(4604:4661))
+BGT_RNA_GAC <- subset(BGT_RNA, POS %in% c(4604:4661))
+BRB_RNA_GAC <- subset(BRB_RNA, POS %in% c(4604:4661))
+ATH_RNA_GAC <- subset(ATH_RNA, POS %in% c(4604:4661))
+CGV_RNA_GAC <- subset(CGV_RNA, POS %in% c(4604:4661))
+
+#12274 has one extra mutation compared to DNAseq - may be bc of filtered SB from DNA-seq (or modification close to the region?) also the two mutations are close to each other so check if they occur in the same reads
+
+GAC_RNAseq <- rbind(CFA_RNA_GAC, CFH_RNA_GAC, CBR_RNA_GAC, CFG_RNA_GAC, ARS_RNA_GAC, BGT_RNA_GAC, BRB_RNA_GAC, ATH_RNA_GAC, CGV_RNA_GAC)
+GAC_RNAseq <- GAC_RNAseq[,c(1,3,5,6,10)]
+GAC_RNAseq$NAME <- c("CFA", "CFH", "CFH", "CBR", "ARS", "BGT", "BRB", "ATH", "ATH", "CGV")
+colnames(GAC_RNAseq) <- c("SEQUENCE_NAME", "POSITION", "REFERENCE", "ISOLATE", "VF", "NAME")
+
+#since RNA_seq has one extra varaint in GAC, use left join with x = RNA_seq data
+GAC_data_Sultanov <- dplyr::left_join(GAC_RNAseq, GAC_DNAseq, by = c("NAME", "REFERENCE", "POSITION", "ISOLATE"))
+
+#fill in the blanks
+GAC_data_Sultanov[9,7] <- "12274_DNA"
+GAC_data_Sultanov[9,8] <- 0
+
+GAC_data_Sultanov <- dplyr::select(GAC_data_Sultanov, NAME, SEQUENCE_NAME.x, SEQUENCE_NAME.y, REFERENCE, POSITION, ISOLATE, VF.x, VF.y)
+colnames(GAC_data_Sultanov) <- c("NAME", "RNA_SEQ_NAME", "DNA_SEQ_NAME", "REFERENCE", "POSITION", "ISOLATE", "VF_RNA", "VF_DNA")
+
+RNA <- ggplot(GAC_data_Sultanov, aes(VF_RNA*100, VF_DNA*100))+
+  geom_smooth(method="lm")+
+  ggpubr::stat_cor(method = "pearson", label.x = 10, label.y = 30)+ #from ggpubr
+  geom_point(alpha=0.8, color = "#CC6600", size = 2)+
+  ggtitle("variants in GAC from DNA-seq vs RNA-seq")+
+  theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        aspect.ratio = 1
+        )+
+  scale_x_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35))+
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35))+
+  geom_abline(intercept = 0)
+```
+
+plot together
+```{r}
+plots(DNA, RNA, n_rows = 2, n_columns = 1)
+plots(DNA, RNA, n_rows = 1, n_columns = 2)
+```

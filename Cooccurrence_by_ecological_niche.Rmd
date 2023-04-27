@@ -1,0 +1,345 @@
+---
+title: "Cooccurrence_by_ecological_niche"
+author: "Daniel Sultanov"
+date: "7/20/2022"
+output: html_document
+---
+libraries
+```{r}
+library("circlize")
+library("dplyr")
+library("tidyverse")
+```
+
+data
+```{r}
+isolates <- read.table("~/Desktop/work/database/updated_tables/Variants.txt", sep = "\t", header = T)
+
+acc_isolate_relation <- read.table("~/Desktop/work/database/source/acc_isolate_relation.txt",
+                          "\t",
+                          header=T)
+#information about ecological origins from Peter et al., 2018
+acc_isolate <- read.table("~/Desktop/work/database/source/Eco_origin_from_Peter_etal.txt",
+                          sep = "\t",
+                          header = T)
+
+
+#add eco origin info to isolates
+isolates <- merge(isolates, acc_isolate, by = "NAME")
+```
+
+prepare tables
+```{r}
+#get eco origins
+eco<-as.character(unique(acc_isolate$Ecological.origins)) #note "Human, clinical" with space
+
+#tables to save data
+eco_var_types<-data.frame(c("a"),c(0),c("a"),c(0), c("a"))
+colnames(eco_var_types)<-c("REFERENCE","POSITION", "ISOLATE","INDEX_type","ecology")
+  
+all_acc_3<-data.frame(c("a"),c(0),c(0),c("a"))
+colnames(all_acc_3)<-c("ACCESSION","VF","INDEX_type","ecology")
+
+eco_candidates<-data.frame(c(0),c(0),c(0),c(0),c(0),c("a"))
+colnames(eco_candidates)<-c("var1","var2","x1","x2","size","ecology")
+```
+
+```{r}
+#subsetting
+#note: doesn't plot "Sake" (for some reason "subscript out of bound"?) Plot it separately
+for (t in 1:length(eco)){
+  n <- subset(isolates, Ecological.origins==eco[t])
+  if (nrow(n)>0){
+    variants<-select(n,REFERENCE,POSITION,ISOLATE)
+    #types of variants
+    var_types<-unique(variants)
+    #add indices
+    var_types$INDEX_type<-seq(1,nrow(var_types),by=1)
+    var_types$ecology<-rep(eco[t],nrow(var_types))  ##
+    eco_var_types<-rbind(eco_var_types,var_types)  ##
+    #assign var_types IDs to isolates (ACCESSION)
+    accession_var_relation<-merge(n, var_types, by=c("POSITION","ISOLATE"))
+    accession_var_relation_2<-select(accession_var_relation, ACCESSION, INDEX_type)
+    cooc_m<-crossprod(table(accession_var_relation_2))
+    diag(cooc_m)<-0
+    #triangularize matrix
+    cooc_m[upper.tri(cooc_m,diag=T)]<-0
+    #allocate empty matrix to store result
+    euclid_dist<-matrix(nrow=nrow(var_types),ncol=nrow(var_types))
+    #thld - more than this amount of isolates must have the same pair
+    #if (mean(s$VF)>0.05) - if all iVFs in the comparison <0.05 - do not consider
+    accession_var_relation_3<-select(accession_var_relation, ACCESSION, VF, INDEX_type)
+    thld<-2 #if threshold == n, then at least n+1 shared variants will be reported
+    if (nrow(n)>thld){ #need to check if there is initially at least enough isolates - otherwise an error
+        for (j in 1:nrow(cooc_m)){
+           for (k in 1:ncol(cooc_m)){
+             if (cooc_m[j,k]>thld){
+               s<-subset(accession_var_relation_3, INDEX_type==j | INDEX_type==k)
+               if (mean(s$VF)>0.05){
+                 euclid_dist[j,k]<-dist((spread(s, ACCESSION, VF, fill=0))[,-1])
+               }else{euclid_dist[j,k]<-NA}
+             }else{euclid_dist[j,k]<-NA}
+           }
+        }
+        #get coordinates of those where d<0.5
+        euclid_0.5<-which(euclid_dist<0.5,arr.ind = T)
+        #get x-values for variant pairs
+        #y-vals will be just to fit it in the plot
+        pair_POS<-data.frame(x1<-rep(0,nrow(euclid_0.5)),x2<-rep(0,nrow(euclid_0.5)))
+        colnames(pair_POS)<-c("x1","x2")
+        for (l in 1:nrow(pair_POS)){
+          pair_POS[l,1]<-var_types[euclid_0.5[l,1],2]
+          pair_POS[l,2]<-var_types[euclid_0.5[l,2],2]
+        }
+        candidates<-cbind(euclid_0.5,pair_POS[,1:2])
+        #sectors are factors here
+        pair_circ = data.frame(sectors = rep("a",length(pair_POS$x1)),x1 = pair_POS$x1, x2 = pair_POS$x2, y = rep(0.5,nrow(pair_POS)))
+        #assign colors: if intra-region cooc - blue; inter- red; between rRNAs - pink
+        col_pairs<-rep("a",nrow(pair_circ))
+        for (i in 1:nrow(pair_circ)){
+          if (pair_circ[i,2] %in% c(1:1243) & pair_circ[i,3] %in% c(1:1243)){
+              col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(1244:1364) & pair_circ[i,3] %in% c(1244:1364)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(1365:2279) & pair_circ[i,3] %in% c(1365:2279)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(2280:2490) & pair_circ[i,3] %in% c(2280:2490)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(2491:5886) & pair_circ[i,3] %in% c(2491:5886)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(5887:6118) & pair_circ[i,3] %in% c(5887:6118)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(6119:6276) & pair_circ[i,3] %in% c(6119:6276)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(6277:6637) & pair_circ[i,3] %in% c(6277:6637)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(6638:8437) & pair_circ[i,3] %in% c(6638:8437)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(8438:9099) & pair_circ[i,3] %in% c(8438:9099)){
+            col_pairs[i]<-"blue"
+          }else {col_pairs[i]<-"#FF69B4"}
+            }
+        circos.par("track.height" = 0.08) #each track is 10% of the circle
+        circos.initialize(pair_circ$sectors, xlim=c(11,9099)) #initialize first
+        circos.track(pair_circ$sectors, ylim=c(0,1)) #treat is as R "plot" function; initialize second
+        #draw sectors = coding/reg regions
+        #param are in DEGREES
+        #change rou1 and 2 according to circos.par("track.height")
+        nt1<-360/(9099-11) #1 nt of rDNA equals to degress on a circle
+        #since clock-wise, degrees are neg
+        draw.sector(0, -1243*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "lightgrey") #NTS2-1
+        draw.sector(-1244*nt1, -1364*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "lightgreen") #5S
+        draw.sector(-1365*nt1, -2279*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "lightgrey") #NTS1-2
+        draw.sector(-2280*nt1, -2490*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "orange") #ETS2-1
+        draw.sector(-2491*nt1, -5886*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "lightgreen") #25S
+        draw.sector(-5887*nt1, -6118*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "orange") #ITS2-1
+        draw.sector(-6119*nt1, -6276*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "lightgreen") #5.8S
+        draw.sector(-6277*nt1, -6637*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "orange") #ITS1-1
+        draw.sector(-6638*nt1, -8437*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "lightgreen") #18S
+        draw.sector(-8438*nt1, -359, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "orange") #ETS1-1
+        
+        #both here are red (can do in one line but col's can be changed pair-wise)
+        circos.trackPoints(pair_circ$sectors, pair_circ$x1, pair_circ$y, pch=16, cex=0.7, col="red")
+        circos.trackPoints(pair_circ$sectors, pair_circ$x2, pair_circ$y, pch=16, cex=0.7, col="red")
+        for (w in 1:nrow(pair_circ)){
+          circos.link("a",pair_circ[w,2],"a",pair_circ[w,3], h.ratio = 0.5, col=col_pairs[w])
+          }
+        title(paste(" ",eco[t],""))
+    }else{NA}
+  }else{NA}
+}
+#do not forget to remove the first row from eco_var_types, all_acc3, and eco_candidates
+eco_var_types <- eco_var_types[-1,]
+all_acc_3 <- all_acc_3[-1,]
+eco_candidates <- eco_candidates[-1,]
+
+###For Sake###
+n <- subset(isolates, Ecological.origins=="Sake")
+  if (nrow(n)>0){
+    variants<-select(n,REFERENCE,POSITION,ISOLATE)
+    #types of variants
+    var_types<-unique(variants)
+    #add indices
+    var_types$INDEX_type<-seq(1,nrow(var_types),by=1)
+    var_types$ecology<-rep(eco[t],nrow(var_types))  ##
+    eco_var_types<-rbind(eco_var_types,var_types)  ##
+    #assign var_types IDs to isolates (ACCESSION)
+    accession_var_relation<-merge(n, var_types, by=c("POSITION","ISOLATE"))
+    accession_var_relation_2<-select(accession_var_relation, ACCESSION, INDEX_type)
+    cooc_m<-crossprod(table(accession_var_relation_2))
+    diag(cooc_m)<-0
+    #triangularize matrix
+    cooc_m[upper.tri(cooc_m,diag=T)]<-0
+    #allocate empty matrix to store result
+    euclid_dist<-matrix(nrow=nrow(var_types),ncol=nrow(var_types))
+    #thld - more than this amount of isolates must have the same pair
+    #if (mean(s$VF)>0.05) - if all iVFs in the comparison <0.05 - do not consider
+    accession_var_relation_3<-select(accession_var_relation, ACCESSION, VF, INDEX_type)
+    thld<-2 #if threshold == n, then at least n+1 shared variants will be reported
+    if (nrow(n)>thld){ #need to check if there is initially at least enough isolates - otherwise an error
+        for (j in 1:nrow(cooc_m)){
+           for (k in 1:ncol(cooc_m)){
+             if (cooc_m[j,k]>thld){
+               s<-subset(accession_var_relation_3, INDEX_type==j | INDEX_type==k)
+               if (mean(s$VF)>0.05){
+                 euclid_dist[j,k]<-dist((spread(s, ACCESSION, VF, fill=0))[,-1])
+               }else{euclid_dist[j,k]<-NA}
+             }else{euclid_dist[j,k]<-NA}
+           }
+        }
+        #get coordinates of those where d<0.5
+        euclid_0.5<-which(euclid_dist<0.5,arr.ind = T)
+        #get x-values for variant pairs
+        #y-vals will be just to fit it in the plot
+        pair_POS<-data.frame(x1<-rep(0,nrow(euclid_0.5)),x2<-rep(0,nrow(euclid_0.5)))
+        colnames(pair_POS)<-c("x1","x2")
+        for (l in 1:nrow(pair_POS)){
+          pair_POS[l,1]<-var_types[euclid_0.5[l,1],2]
+          pair_POS[l,2]<-var_types[euclid_0.5[l,2],2]
+        }
+        candidates<-cbind(euclid_0.5,pair_POS[,1:2])
+        #sectors are factors here
+        pair_circ = data.frame(sectors = rep("a",length(pair_POS$x1)),x1 = pair_POS$x1, x2 = pair_POS$x2, y = rep(0.5,nrow(pair_POS)))
+        #assign colors: if intra-region cooc - blue; inter- red; between rRNAs - pink
+        col_pairs<-rep("a",nrow(pair_circ))
+        for (i in 1:nrow(pair_circ)){
+          if (pair_circ[i,2] %in% c(1:1243) & pair_circ[i,3] %in% c(1:1243)){
+              col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(1244:1364) & pair_circ[i,3] %in% c(1244:1364)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(1365:2279) & pair_circ[i,3] %in% c(1365:2279)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(2280:2490) & pair_circ[i,3] %in% c(2280:2490)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(2491:5886) & pair_circ[i,3] %in% c(2491:5886)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(5887:6118) & pair_circ[i,3] %in% c(5887:6118)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(6119:6276) & pair_circ[i,3] %in% c(6119:6276)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(6277:6637) & pair_circ[i,3] %in% c(6277:6637)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(6638:8437) & pair_circ[i,3] %in% c(6638:8437)){
+            col_pairs[i]<-"blue"
+          }else if (pair_circ[i,2] %in% c(8438:9099) & pair_circ[i,3] %in% c(8438:9099)){
+            col_pairs[i]<-"blue"
+          }else {col_pairs[i]<-"#FF69B4"}
+            }
+        circos.par("track.height" = 0.08) #each track is 10% of the circle
+        circos.initialize(pair_circ$sectors, xlim=c(11,9099)) #initialize first
+        circos.track(pair_circ$sectors, ylim=c(0,1)) #treat is as R "plot" function; initialize second
+        #draw sectors = coding/reg regions
+        #param are in DEGREES
+        #change rou1 and 2 according to circos.par("track.height")
+        nt1<-360/(9099-11) #1 nt of rDNA equals to degress on a circle
+        #since clock-wise, degrees are neg
+        draw.sector(0, -1243*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "lightgrey") #NTS2-1
+        draw.sector(-1244*nt1, -1364*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "lightgreen") #5S
+        draw.sector(-1365*nt1, -2279*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "lightgrey") #NTS1-2
+        draw.sector(-2280*nt1, -2490*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "orange") #ETS2-1
+        draw.sector(-2491*nt1, -5886*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "lightgreen") #25S
+        draw.sector(-5887*nt1, -6118*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "orange") #ITS2-1
+        draw.sector(-6119*nt1, -6276*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "lightgreen") #5.8S
+        draw.sector(-6277*nt1, -6637*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "orange") #ITS1-1
+        draw.sector(-6638*nt1, -8437*nt1, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "lightgreen") #18S
+        draw.sector(-8438*nt1, -359, rou1 = 0.99, rou2 = 0.91, clock.wise = T, border=NA ,col = "orange") #ETS1-1
+        
+        #both here are red (can do in one line but col's can be changed pair-wise)
+        circos.trackPoints(pair_circ$sectors, pair_circ$x1, pair_circ$y, pch=16, cex=0.7, col="red")
+        circos.trackPoints(pair_circ$sectors, pair_circ$x2, pair_circ$y, pch=16, cex=0.7, col="red")
+        for (w in 1:nrow(pair_circ)){
+          circos.link("a",pair_circ[w,2],"a",pair_circ[w,3], h.ratio = 0.5, col=col_pairs[w])
+          }
+        title(paste(" ","Sake",""))
+    }else{NA}
+  }
+```
+Write into a table
+```{r}
+cooc_isolates<-data.frame(c("a"), c(0), c(0), c(0), c(0))
+colnames(cooc_isolates)<-c("ACCESSION", "VF.x", "INDEX_type.x", "VF.y", "INDEX_type.y")
+
+#!reassign eco_vars table here again!
+eco_var_types<-data.frame(c("a"),c(0),c("a"),c(0), c("a"))
+colnames(eco_var_types)<-c("REFERENCE","POSITION", "ISOLATE","INDEX_type","ecology")
+
+#!!NOTE!!: MUST be the same parameters as for plotting - e.g. here eucledian dist threshold < 0.5, mean < 0.5 and thld == 2
+#subsetting
+for (t in 1:length(eco)){
+  n <- subset(isolates, Ecological.origins==eco[t])
+  if (nrow(n)>0){
+    variants<-select(n,REFERENCE,POSITION,ISOLATE)
+    #types of variants
+    var_types<-unique(variants)
+    #add indices
+    var_types$INDEX_type<-seq(1,nrow(var_types),by=1)
+    var_types$ecology<-rep(eco[t],nrow(var_types))  ##
+    eco_var_types<-rbind(eco_var_types,var_types)  ##
+    #assign var_types IDs to isolates (ACCESSION)
+    accession_var_relation<-merge(n, var_types, by=c("POSITION","ISOLATE"))
+    accession_var_relation_2<-select(accession_var_relation, ACCESSION, INDEX_type)
+    cooc_m<-crossprod(table(accession_var_relation_2))
+    diag(cooc_m)<-0
+    #triangularize matrix
+    cooc_m[upper.tri(cooc_m,diag=T)]<-0
+    #allocate empty matrix to store result
+    euclid_dist<-matrix(nrow=nrow(var_types),ncol=nrow(var_types))
+    #thld - more than this amount of isolates must have the same pair
+    #if (mean(s$VF)>0.05) - if all iVFs in the comparison <0.05 - do not consider
+    accession_var_relation_3<-select(accession_var_relation, ACCESSION, VF, INDEX_type)
+    thld<-2 #if threshold == n, then at least n+1 shared variants will be reported
+    if (nrow(n)>thld){ #need to check if there is initially at least enough isolates - otherwise an error
+        for (j in 1:nrow(cooc_m)){
+           for (k in 1:ncol(cooc_m)){
+             if (cooc_m[j,k]>thld){
+               s<-subset(accession_var_relation_3, INDEX_type==j | INDEX_type==k)
+               if (mean(s$VF)>0.05){
+                 if(dist((spread(s, ACCESSION, VF, fill=0))[,-1]) < 0.5){
+                   u <- s
+                   v <- subset(u, INDEX_type == j)
+                   w <- subset(u, INDEX_type == k)
+                   q <- merge(v, w, by = "ACCESSION")
+                   cooc_isolates<-rbind(cooc_isolates,q)}
+               }
+             }
+           }
+        }
+    }
+  }
+}
+eco_var_types <- eco_var_types[-1,]
+cooc_isolates <- cooc_isolates[-1,]
+
+#add names and ecological groups
+isolates_coocurrence <- left_join(cooc_isolates, acc_isolate_relation, by = "ACCESSION")
+isolates_coocurrence <- isolates_coocurrence[,1:6]
+isolates_coocurrence <- left_join(isolates_coocurrence, acc_isolate, by = "NAME")
+#rename "NAME" to "Standardized.name"
+colnames(isolates_coocurrence) <- c("ACCESSION", "VF.x", "INDEX_type.x", "VF.y", "INDEX_type.y", "Standardized.name", "Ecological.origins")
+isolates_coocurrence <- select(isolates_coocurrence, Standardized.name, ACCESSION, VF.x, INDEX_type.x, VF.y, INDEX_type.y, Ecological.origins)
+
+#explicitly add variants; .x = one variant from a pair, .y = its partner in the pair
+#do it column by column
+
+#!!!!!!!
+#changing colnames
+#!!!!!!!
+colnames(eco_var_types) <- c("REFERENCE", "POSITION", "ISOLATE", "INDEX_type.x", "Ecological.origins")
+cooccurrence_table <- left_join(isolates_coocurrence, eco_var_types, by = c("INDEX_type.x", "Ecological.origins"))
+colnames(cooccurrence_table) <- c("Standardized.name", "ACCESSION", "VF.x", "INDEX_type.x", "VF.y", "INDEX_type.y", "Ecological.origins", "POS.x", "ALT.x")
+colnames(eco_var_types) <- c("REFERENCE", "POSITION", "ISOLATE", "INDEX_type.y", "Ecological.origins")
+cooccurrence_table <- left_join(cooccurrence_table, eco_var_types, by = c("INDEX_type.y", "Ecological.origins"))
+cooccurrence_table <- select(cooccurrence_table, Standardized.name, ACCESSION, Ecological.origins, POSITION.x, ISOLATE.x, VF.x, POSITION.y, ISOLATE.y, VF.y)
+
+#pipeline compares all alleles hence it might compare two varaitns in the same position
+#check it:
+table(cooccurrence_table$POSITION.x == cooccurrence_table$POSITION.y) #only 43 instances;should be excluded from the further analysis:
+cooccurrence_table <- subset(cooccurrence_table, !(POSITION.x == POSITION.y))
+
+#change colnames one more time
+colnames(cooccurrence_table) <- c("NAME", "ACCESSION", "NICHE", "POSITION_1", "VARIANT_1", "VF_1", "POSITION_2", "VARIANT_2", "VF_2")
+
+```
+```
+
+

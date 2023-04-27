@@ -1,0 +1,132 @@
+---
+title: "Entropy"
+author: "Daniel Sultanov"
+date: "8/9/2022"
+output: html_document
+---
+Libraries
+```{r}
+library("dplyr")
+library("vegan")
+library("ggplot2")
+```
+
+Data
+```{r}
+isolates <- read.table("~/Desktop/work/database/updated_tables/Variants.txt", sep = "\t", header = T)
+isolates <- select(isolates, NAME, POSITION, REFERENCE, ISOLATE, VF, INDEL)
+rDNA_copynum <- read.table("~/Desktop/work/database/source/rDNA_copynumber.txt", sep = "\t", header = T)
+#total rDNA copy number
+rDNA_copynum <-select(rDNA_copynum, NAME, total)
+colnames(rDNA_copynum) <- c("NAME", "rDNA_total")
+#reference
+#a neat way to make a column with ref nucleotides from a string is to use 'fold -1 fasta.txt' in bash
+ref<-scan("~/Desktop/work/rDNA_project/rDNA_ref.txt", what=character(), sep="\n")
+#add copy number information
+isolates <- merge(isolates, rDNA_copynum, by = "NAME")
+```
+
+#Count richness per rDNA position
+```{r}
+#add variant rDNA copy number
+isolates$rDNA_variant <- round(isolates$VF*isolates$rDNA_total,digits=0)
+
+#note: do not conut In and Dels separately; lump them together as Indels
+#be careful with "T" here; without quotes it will treat is as the TRUE statement
+measure<-data.frame(A=c(rep(0,9137)), "T"=c(rep(0,9137)), G=c(rep(0,9137)), C=c(rep(0,9137)), Indel=c(rep(0,9137)))
+
+#first, add alternative SNP allele counts 
+for (i in 1:nrow(isolates)){
+  if (isolates[i,4]=="A" & isolates[i,6]!="INDEL")
+  {
+    measure[isolates[i,2],1]=measure[isolates[i,2],1]+isolates[i,8]
+  } else if (isolates[i,4]=="T" & isolates[i,6]!="INDEL")
+  {
+    measure[isolates[i,2],2]=measure[isolates[i,2],2]+isolates[i,8]
+  } else if (isolates[i,4]=="G" & isolates[i,6]!="INDEL")
+  {
+   measure[isolates[i,2],3]=measure[isolates[i,2],3]+isolates[i,8]
+  } else if (isolates[i,4]=="C" & isolates[i,6]!="INDEL")
+   measure[isolates[i,2],4]=measure[isolates[i,2],4]+isolates[i,8]
+}
+
+#add Indels together
+for (i in 1:nrow(isolates)){
+  if (isolates[i,6]=="INDEL"){
+    measure[isolates[i,2],5]=measure[isolates[i,2],5]+isolates[i,8]
+  }
+}
+```
+
+
+```{r}
+#add reference sequences
+##note: one position can have multiple alternative sequences in an isolate
+ref_counts<-data.frame(A=c(rep(0,9137)), "T"=c(rep(0,9137)), G=c(rep(0,9137)), C=c(rep(0,9137)))
+for (i in 1:length(ref)){
+  if (ref[i]=="A"){
+    ref_counts[i,1]<-sum(rDNA_copynum$rDNA_total, na.rm = T)
+  }else if (ref[i]=="T"){
+    ref_counts[i,2]<-sum(rDNA_copynum$rDNA_total, na.rm = T)
+  }else if (ref[i]=="G"){
+    ref_counts[i,3]<-sum(rDNA_copynum$rDNA_total, na.rm = T)
+  }else if (ref[i]=="C"){
+    ref_counts[i,4]<-sum(rDNA_copynum$rDNA_total, na.rm = T)
+  }
+}
+
+#add ref values to "measure"
+for (i in 1:nrow(measure)){
+  if (ref_counts[i,1]>0){
+    measure[i,1]<-sum(rDNA_copynum$rDNA_total, na.rm = T)-sum(measure[i,-1])
+  }else if (ref_counts[i,2]>0){
+    measure[i,2]<-sum(rDNA_copynum$rDNA_total, na.rm = T)-sum(measure[i,-2])
+  }else if (ref_counts[i,3]>0){
+    measure[i,3]<-sum(rDNA_copynum$rDNA_total, na.rm = T)-sum(measure[i,-3])
+  }else if (ref_counts[i,4]>0){
+    measure[i,4]<-sum(rDNA_copynum$rDNA_total, na.rm = T)-sum(measure[i,-4])
+  }
+}
+```
+
+#Shannon's entropy
+Shannon's entropy $$H(POS)=-\sum_{i=1}^{dimS}(\frac{n_i}{N} \times \ln\frac{n_i}{N})$$, where $n_i$ is a variant (or rDNA copy) over total number of types of variants (number of rDNA copies), and $S\in\big\{A, T, G, C, indel\big\}$.
+```{r}
+shan<-diversity(measure[,], index="shannon")
+
+layout(matrix(c(1,2), 2, 1, byrow=T))
+par(mar = c(0, 3, 1.4, 5))
+hist(isolates$POSITION, xlab = "", border="blue", breaks=seq(11,9099,by=1), xaxt="n", main=NA, yaxt="n")
+axis(side=4, las=2, lwd=0, lwd.ticks = 1, cex.axis=1.7, col.axis="blue")
+mtext(text = "iVFPs, n", side = 2, cex=1.1, col="blue")
+par(mar = c(2, 3, 0, 5))
+plot(shan, type="l")
+rect(1244, 0, 1364, 1, col=alpha("green", 0.2), border = NA) #5S
+rect(2491, 0, 5886, 1, col=alpha("green", 0.2), border = NA) #25S
+rect(6119, 0, 6276, 1, col=alpha("green", 0.2), border = NA) #5.8S
+rect(6638, 0, 8437, 1, col=alpha("green", 0.2), border = NA) #18S
+```
+##Correlation
+for polynomial fit, check https://www.r-graph-gallery.com/44-polynomial-curve-fitting.html
+```{r}
+rdn_freq<-(hist(isolates$POSITION,breaks=seq(0,9137,by=1)))$counts
+poly_fit<-lm(shan~rdn_freq + I(rdn_freq^2) + I(rdn_freq^3))
+
+predict_fit<-predict(poly_fit)
+ix <- sort(rdn_freq,index.return=T)$ix
+freq_shan<-cbind(rdn_freq,shan)
+
+plot(rdn_freq,shan, col=rgb(0.4,0.4,0.8,0.6), pch=16 , cex=1.3, xlab = "iVFP, n", ylab = "Shannon's entropy")
+lines(rdn_freq[ix], predict_fit[ix], col=2, lwd=2)#polynomial fit
+text(paste("R^2 = ", round(summary(poly_fit)$adj.r.squared,2)), x = 100, y = 0.6)
+
+#arch-shape which is expected because once it passes ~half the max frequency, if there i a domineering allele, which in most cases there is, it will dominate the variety and decrease the entropy
+```
+Prepare table
+```{r}
+shannon_entropy <- cbind(seq(1,9137),measure, shan)
+colnames(shannon_entropy) <- c("POSITION", "A", "T", "G", "C", "INDEL", "H")
+```
+
+
+

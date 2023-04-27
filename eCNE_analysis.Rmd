@@ -1,0 +1,260 @@
+---
+title: "eCNE analysis"
+output: html_document
+---
+
+Libraries
+```{r}
+library("ggplot2")
+library("tidyr")
+```
+
+Datasets
+```{r}
+RNA_variants <- read.table("~/Desktop/work/database/updated_tables/rRNA_annotation.txt", sep = "\t",
+                           header = T, comment.char = "#")
+
+#From Doris et al, RNA 2015
+eCNE <- read.delim("~/Desktop/work/database/source/eCNEs_Doris_etal.txt",
+                   "\t",
+                   header = T,
+                   comment.char = "#"
+                   )
+#Sequences in eCNE are +1 shifted! recoordinate START
+for (i in 1:nrow(eCNE)){
+  eCNE[i,3]<-eCNE[i,3]+1
+}
+```
+
+# Distribution of variants in 25S
+```{r}
+#Note: to assign VFs to eCNEs de novo (i.e. how it was done for the RNA_variants table) use this snippet:
+##NUM is eCNE number; the position in vector corresponds to INDEX in S25
+#NUM<-rep(0,nrow(S25))
+#for (i in 1:length(NUM)){
+#  for (j in 1:nrow(eCNE)){
+#    if (S25[i,4] %in% seq(eCNE[j,3],eCNE[j,3]+(eCNE[j,4]-1),1)){ #S25[i,4] refers to RNA_POSITION
+#      NUM[i]<-eCNE[j,1] 
+#      }
+#  }
+#}
+
+#get 25S rRNA ("S25")
+S25 <- subset(RNA_variants, RRNA == "25S")
+
+#plot
+plot(S25$RNA_POSITION, S25$VF*100, col=as.factor(S25$NAME), 
+     xlim = c(0,3400),
+     ylim = c(0,100), 
+     pch=16,
+     cex=0.4,
+     xlab="Position in 25S, nt",
+     ylab="iVF,%",
+     main=("eCNE in 25S"))
+for (i in 1:nrow(eCNE)){
+  rect(eCNE[i,3],0,eCNE[i,3]+eCNE[i,4]-1,100,col=alpha("skyblue", 0.2), border = NA)
+}
+```
+
+# Distribution of iVFPs in CNE
+```{r}
+#Note: one position can have multiple VFs, so histogram counts are bigger than number of variant POSITIONS in eCNEs
+hist((subset(S25, CNE == "yes"))$VF*100, breaks = 100,
+     ylim = c(0, 60), 
+     yaxs = "i", #yaxs and xaxs control the "inner" margins between plot and axes
+     xlim = c(-3,103),
+     xaxs = "i",
+     main = "Distribution of iVFPs in CNE",
+     xlab = "iVF, %",
+     ylab = "iVFP, n")
+abline(v=6, col="blue", lwd = 1.5)
+
+#stats
+below_6 <- subset(S25, CNE == "yes" & VF <= 0.06)
+above_6 <- subset(S25, CNE == "yes" & VF > 0.06)
+
+##number of VFPs
+nrow(below_6) # =< 6%
+nrow(above_6) # > 6%
+nrow(below_6) + nrow(above_6) #total
+##number of variants
+below_6_VAR <- unique(paste(below_6$RNA_POSITION, below_6$RNA_REFERENCE, below_6$RNA_ISOLATE))
+length(below_6_VAR)
+above_6_VAR <- unique(paste(above_6$RNA_POSITION, above_6$RNA_REFERENCE, above_6$RNA_ISOLATE))
+length(above_6_VAR)
+###overlap
+below_6_VAR[which(below_6_VAR %in% above_6_VAR)] #2 variants
+VennDiagram::venn.diagram(x = list(below_6_VAR, above_6_VAR),
+                          category.names = c("below 6%", "above 6%"),
+                          filename = "~/Desktop/venn_diagram.jpg",
+                          output = T
+                          )
+```
+
+# Distribution of iVFPs in 25S
+```{r}
+#total number of nucleotides in eCNEs
+k<-sum(eCNE$LEN)
+
+#adjusted 25S rRNA length which is 3390 nt (real: 3396 nt) due to homopolymer mascing in filtering steps
+len_25S_adj <- 3390
+
+#number of iVFPs IN eCNEs
+C_q<-nrow(subset(S25, CNE == "yes"))
+
+#total number of iVFPs IN 25S RRNA
+C_m<-nrow(S25)
+
+#for =<1 %
+#number of iVFPs IN eCNEs with VF =< 1 %
+C_q_low_1<-nrow(subset(S25, CNE == "yes" & VF <= 0.01))
+
+#total number of iVFPs IN 25S RRNA with VF =< 1%
+C_m_low_1<-nrow(subset(S25, VF <= 0.01))
+
+#for =<2 %
+#number of iVFPs IN eCNEs with VF =< 2 %
+C_q_low_2<-nrow(subset(S25, CNE == "yes" & VF <= 0.02))
+
+#m_low_2 - total number of iVFPs IN 25S RRNA with VF =< 2%
+C_m_low_2<-nrow(subset(S25, VF <= 0.02))
+
+#for =<3 %
+#q_low_3 - number of iVFPs IN eCNEs with VF =< 3 %
+C_q_low_3<-nrow(subset(S25, CNE == "yes" & VF <= 0.03))
+
+#m_low_3 - total number of iVFPs IN 25S rRNA with VF =<3%
+C_m_low_3<-nrow(subset(S25, VF <= 0.03))
+
+#for =<4 %
+#q_low_4 - number of iVFPs IN eCNEs with VF =< 4 %
+C_q_low_4<-nrow(subset(S25, CNE == "yes" & VF <= 0.04))
+
+#m_low_4 - total number of variant POSITIONS in 25S rRNA with VF =< 4%
+C_m_low_4<-nrow(subset(S25, VF <= 0.04))
+
+#for =<5 %
+#q_low_5 - number of iVFPs IN eCNEs with VF =< 5%
+C_q_low_5<-nrow(subset(S25, CNE == "yes" & VF <= 0.05))
+
+#m_low_5 - total number of iVFPs IN 25S rRNA with VF =< 5%
+C_m_low_5<-nrow(subset(S25, VF <= 0.05))
+
+#for =<6 %
+#q_low_6 - number of iVFPs IN eCNEs with VF =< 5%
+C_q_low_6<-nrow(subset(S25, CNE == "yes" & VF <= 0.06))
+
+#m_low_6 - total number of iVFPs IN 25S rRNA with VF =< 5%
+C_m_low_6<-nrow(subset(S25, VF <= 0.06))
+
+VFPs_cne_d_all<-tibble("Type" = c("Expected", "Expected", "=<1%", "=<1%", "=<2%", "=<2%", "=<3%", "=<3%", "=<4%", "=<4%", "=<5%", "=<5%", "=<6%", "=<6%", "all", "all"),
+       "group" = c("in_cne", "out_cne", "in_cne", "out_cne", "in_cne", "out_cne", "in_cne", "out_cne", "in_cne", "out_cne", "in_cne", "out_cne", "in_cne", "out_cne", "in_cne", "out_cne"),
+       "values" = c(k/len_25S_adj, (len_25S_adj-k)/len_25S_adj, C_q_low_1/C_m_low_1, (C_m_low_1-C_q_low_1)/C_m_low_1, C_q_low_2/C_m_low_2, (C_m_low_2-C_q_low_2)/C_m_low_2, C_q_low_3/C_m_low_3, (C_m_low_3-C_q_low_3)/C_m_low_3, C_q_low_4/C_m_low_4, (C_m_low_4-C_q_low_4)/C_m_low_4, C_q_low_5/C_m_low_5, (C_m_low_5-C_q_low_5)/C_m_low_5, C_q_low_6/C_m_low_6, (C_m_low_6-C_q_low_6)/C_m_low_6,C_q/C_m, (C_m-C_q)/C_m)
+       )
+
+VFPs_cne_d_all$group <- factor(VFPs_cne_d_all$group, levels = c("out_cne", "in_cne"))
+VFPs_cne_d_all$Type <- factor(VFPs_cne_d_all$Type, levels = c("Expected", "=<1%", "=<2%", "=<3%", "=<4%", "=<5%", "=<6%", "all"))
+ggplot(VFPs_cne_d_all, aes(fill=group, y=values, x=Type))+
+  geom_bar(position = "stack", stat= "identity")+
+  scale_fill_brewer(palette="Blues")+
+  theme(axis.text.y   = element_text(size = 20, color = "black"),
+        axis.text.x = element_text(size=20, color = "black", angle = -90),
+        axis.title.x = element_text(size=22),
+        axis.title.y = element_text(size=22),
+        legend.text = element_text(size = 20),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        aspect.ratio=1.5
+        )
+
+#contingency tables
+C_all_cne <- data.frame(
+  "CNE" = c(k, C_q),
+  "no_CNE" = c(len_25S_adj-k, C_m - C_q),
+  row.names = c("Expected", "Observed")
+)
+
+C_cne_1 <- data.frame(
+  "CNE" = c(k, C_q_low_1),
+  "no_CNE" = c(len_25S_adj-k, C_m_low_1-C_q_low_1),
+  row.names = c("Expected", "Observed")
+)
+
+C_cne_2 <- data.frame(
+  "CNE" = c(k, C_q_low_2),
+  "no_CNE" = c(len_25S_adj-k, C_m_low_2-C_q_low_2),
+  row.names = c("Expected", "Observed")
+)
+
+C_cne_3 <- data.frame(
+  "CNE" = c(k, C_q_low_3),
+  "no_CNE" = c(len_25S_adj-k, C_m_low_3-C_q_low_3),
+  row.names = c("Expected", "Observed")
+)
+
+C_cne_4 <- data.frame(
+  "CNE" = c(k, C_q_low_4),
+  "no_CNE" = c(len_25S_adj-k, C_m_low_4-C_q_low_4),
+  row.names = c("Expected", "Observed")
+)
+
+C_cne_5 <- data.frame(
+  "CNE" = c(k, C_q_low_5),
+  "no_CNE" = c(2434, C_m_low_5-C_q_low_5),
+  row.names = c("Expected", "Observed")
+)
+
+C_cne_6 <- data.frame(
+  "CNE" = c(k, C_q_low_6),
+  "no_CNE" = c(2434, C_m_low_6-C_q_low_6),
+  row.names = c("Expected", "Observed")
+)
+fisher.test(C_all_cne)
+fisher.test(C_cne_1)
+fisher.test(C_cne_2)
+fisher.test(C_cne_3)
+fisher.test(C_cne_4)
+fisher.test(C_cne_5)
+fisher.test(C_cne_6)
+
+#adjust p-values for multiple comparisons
+p.adjust(c(fisher.test(C_all_cne)$p.value,
+           fisher.test(C_cne_1)$p.value,
+           fisher.test(C_cne_2)$p.value,
+           fisher.test(C_cne_3)$p.value,
+           fisher.test(C_cne_4)$p.value,
+           fisher.test(C_cne_5)$p.value,
+           fisher.test(C_cne_6)$p.value),
+         method = "BH")
+
+```
+
+#Distribution of sums of low iVFs in coding regions (5S, 5.8S, 18S, 25S) across isolates
+```{r}
+all_rRNA_low_VF <- subset(RNA_variants, VF <= 0.05)
+
+# isolates with =< 1% of variants in eCNEs
+low_1 <- unique(subset(S25, CNE == "yes" & VF <= 0.01)$ACCESSION)
+
+#sum of low iVFs up to 5%
+low_VF_sum <- aggregate(all_rRNA_low_VF$VF, by=list(Category=all_rRNA_low_VF$ACCESSION), FUN=sum)
+
+#plot
+hist(low_VF_sum$x*100, breaks = 70, col = "pink3", yaxp = c(0,130, 13))
+abline(v = median(low_VF_sum$x*100), col = "red") #median is 2.96 == 3%
+##add isolates with =< 1% of variants in eCNEs
+abline(v=(subset(low_VF_sum, Category %in% low_1))$x*100)
+
+#"eCNE" isolates with cumulative low iVFs below or above the median
+table(low_VF_sum[which(low_VF_sum$Category %in% low_1),]$x <= 0.03) #TRUE <= 3%, FALSE > 3%
+
+#cumulative distribution
+plot(ecdf(low_VF_sum$x*100), cex = 0.5, xaxp=c(0,70,70/5))
+
+
+```
+
+

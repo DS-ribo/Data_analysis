@@ -1,0 +1,344 @@
+---
+title: "Distribution of iVFPs in ESs and RPs"
+output: html_document
+---
+
+Libraries
+```{r}
+library("ggplot2")
+library("see")
+```
+
+Data
+```{r}
+RNA_variants <- read.table("~/Desktop/work/database/updated_tables/rRNA_annotation.txt", sep = "\t",
+                           header = T, comment.char = "#")
+
+#From Ben-Shem et al., Science 2011
+ES <- read.delim("~/Desktop/work/database/source/ES_BenShem_etal.txt",
+                 "\t",
+                 header=T,
+                 fileEncoding = "utf-16le"
+                 ) #i think need file encoding bc of "." in "5.8S"
+#note: although some nt for ES are missing from the crystal structure, the annotation still includes them which is good
+
+RPs <- read.table("~/Desktop/work/database/source/RP_BenShem_etal.txt",
+                  sep = "\t",
+                  header = T,
+                  fileEncoding = "utf-16le")
+```
+
+#Distribution of iVFPs between expansion segments (ES) and other parts of the rRNA (no ES)
+##For LSU
+```{r}
+LSU_ES <- subset(ES, SUBUNIT == "L")
+
+#total number of LSU nucleotides
+#use adjusted RRNA lengths (25S adj: 3390 vs 3396) due to homopolymer mascing in filtering steps
+#5S: 121nt; 5.8S: 158nt
+LSU_total <- 121 + 158 + 3390
+
+#total number of ES LSU nucleotides
+LSU_ES_len <- 0
+for (l in 1:nrow(LSU_ES)){
+  LSU_ES_len <- LSU_ES_len + (LSU_ES[l,5]-LSU_ES[l,4]+1)
+}
+LSU_ES_len
+
+#total number of non-ES LSU nucleotides
+LSU_non <- LSU_total - LSU_ES_len
+#ratios
+LSU_non_r <- LSU_non/LSU_total
+LSU_ES_r <- LSU_ES_len/LSU_total
+
+#For iVFPs
+LSU <- subset(RNA_variants, SUBUNIT == "LSU")
+
+#iVFP ratios for low, medium, and high categories
+LSU_low <- subset(LSU, VF < 0.05)
+#in ES
+LSU_low_ES <- length((LSU_low$ES)[(LSU_low$ES)!=""])/nrow(LSU_low)
+#not in ES
+LSU_low_no_ES <- length((LSU_low$ES)[(LSU_low$ES)==""])/nrow(LSU_low)
+
+LSU_med <- subset(LSU, VF >= 0.05 & VF < 0.95)
+LSU_med_ES <- length((LSU_med$ES)[(LSU_med$ES)!=""])/nrow(LSU_med)
+LSU_med_no_ES <- length((LSU_med$ES)[(LSU_med$ES)==""])/nrow(LSU_med)
+
+LSU_hi <- subset(LSU, VF >= 0.95)
+LSU_hi_ES <- length((LSU_hi$ES)[(LSU_hi$ES)!=""])/nrow(LSU_hi)
+LSU_hi_no_ES <- length((LSU_hi$ES)[(LSU_hi$ES)==""])/nrow(LSU_hi)
+
+#build dataframe
+Freq <- c(LSU_ES_r, LSU_non_r, LSU_low_ES, LSU_low_no_ES, LSU_med_ES, LSU_med_no_ES, LSU_hi_ES, LSU_hi_no_ES)
+ES_s <- c("yes", "no", "yes", "no", "yes", "no", "yes", "no")
+TYPE_s <- c("ref", "ref", "low", "low", "med", "med", "hi", "hi")
+
+LSU_distr <- as.data.frame(cbind(Freq, ES_s, TYPE_s))
+colnames(LSU_distr) <- c("Frequency", "ES", "Type")
+LSU_distr$Frequency <- as.numeric(LSU_distr$Frequency)
+LSU_distr$Type <- factor(LSU_distr$Type, levels = c("ref", "low", "med", "hi"))
+LSU_distr
+
+#plot
+
+L<-ggplot(LSU_distr, aes(fill=ES, y=Frequency, x=Type))+
+  geom_bar(position = "stack", stat= "identity")+
+  scale_fill_brewer(palette="Blues")+
+  theme(axis.text   = element_text(size=20, color = "black"),
+        axis.title = element_text(size=22),
+        legend.text = element_text(size = 20),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  labs(title="LSU")
+```
+
+##For SSU
+```{r}
+SSU_ES <- subset(ES, SUBUNIT == "S")
+
+#total number of SSU nucleotides
+#use adjusted RRNA lengths but 18S adj == 18S real (1800 nt)
+SSU_total <- 1800
+
+#total number of ES SSU nucleotides
+SSU_ES_len <- 0
+for (l in 1:nrow(SSU_ES)){
+  SSU_ES_len <- SSU_ES_len + (SSU_ES[l,5]-SSU_ES[l,4]+1)
+}
+SSU_ES_len
+
+#total number of non-ES SSU nucleotides
+SSU_non <- SSU_total - SSU_ES_len
+#ratios
+SSU_non_r <- SSU_non/SSU_total
+SSU_ES_r <- SSU_ES_len/SSU_total
+
+#For iVFPs
+SSU <- subset(RNA_variants, SUBUNIT == "SSU")
+
+#iVFP ratios for low, medium, and high categories
+SSU_low <- subset(SSU, VF < 0.05)
+#in ES
+SSU_low_ES <- length((SSU_low$ES)[(SSU_low$ES)!=""])/nrow(SSU_low)
+#not in ES
+SSU_low_no_ES <- length((SSU_low$ES)[(SSU_low$ES)==""])/nrow(SSU_low)
+
+SSU_med <- subset(SSU, VF >= 0.05 & VF < 0.95)
+SSU_med_ES <- length((SSU_med$ES)[(SSU_med$ES)!=""])/nrow(SSU_med)
+SSU_med_no_ES <- length((SSU_med$ES)[(SSU_med$ES)==""])/nrow(SSU_med)
+
+SSU_hi <- subset(SSU, VF >= 0.95)
+SSU_hi_ES <- length((SSU_hi$ES)[(SSU_hi$ES)!=""])/nrow(SSU_hi)
+SSU_hi_no_ES <- length((SSU_hi$ES)[(SSU_hi$ES)==""])/nrow(SSU_hi)
+
+#build dataframe
+Freq_SSU <- c(SSU_ES_r, SSU_non_r, SSU_low_ES, SSU_low_no_ES, SSU_med_ES, SSU_med_no_ES, SSU_hi_ES, SSU_hi_no_ES)
+ES_SSU <- c("yes", "no", "yes", "no", "yes", "no", "yes", "no")
+TYPE_SSU <- c("ref", "ref", "low", "low", "med", "med", "hi", "hi")
+
+SSU_distr <- as.data.frame(cbind(Freq_SSU, ES_SSU, TYPE_SSU))
+colnames(SSU_distr) <- c("Frequency", "ES", "Type")
+SSU_distr$Frequency <- as.numeric(SSU_distr$Frequency)
+SSU_distr$Type <- factor(SSU_distr$Type, levels = c("ref", "low", "med", "hi"))
+SSU_distr
+
+#plot
+
+S<-ggplot(SSU_distr, aes(fill=ES, y=Frequency, x=Type))+
+  geom_bar(position = "stack", stat= "identity")+
+  scale_fill_brewer(palette="Oranges")+
+  theme(axis.text.y   = element_text(size = 20),
+        axis.text.x = element_text(size=20, color = "black"),
+        axis.title.x = element_text(size=22),
+        axis.title.y = element_text(size=22),
+        legend.text = element_text(size = 20),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  labs(title="SSU")
+```
+
+##plot and stats
+```{r}
+#plot
+plots(L, S, n_columns = 2)
+
+#statistics
+##LSU
+#contingency tables
+L_low <- rbind(c(LSU_ES_len,LSU_non),
+               c(length((LSU_low$ES)[(LSU_low$ES)!=""]),length((LSU_low$ES)[(LSU_low$ES)==""])))
+
+L_med <- rbind(c(LSU_ES_len,LSU_non),
+               c(length((LSU_med$ES)[(LSU_med$ES)!=""]),length((LSU_med$ES)[(LSU_med$ES)==""])))
+
+L_hi <- rbind(c(LSU_ES_len,LSU_non),
+               c(length((LSU_hi$ES)[(LSU_hi$ES)!=""]),length((LSU_hi$ES)[(LSU_hi$ES)==""])))
+
+fisher.test(L_low)
+fisher.test(L_med)
+fisher.test(L_hi)
+
+#adjust p-values for multiple comparisons
+p.adjust(c(fisher.test(L_low)$p.value,
+           fisher.test(L_med)$p.value,
+           fisher.test(L_hi)$p.value),
+         method = "BH")
+
+S_low <- rbind(c(SSU_ES_len,SSU_non),
+               c(length((SSU_low$ES)[(SSU_low$ES)!=""]),length((SSU_low$ES)[(SSU_low$ES)==""])))
+
+S_med <- rbind(c(SSU_ES_len,SSU_non),
+               c(length((SSU_med$ES)[(SSU_med$ES)!=""]),length((SSU_med$ES)[(SSU_med$ES)==""])))
+
+S_hi <- rbind(c(SSU_ES_len,SSU_non),
+               c(length((SSU_hi$ES)[(SSU_hi$ES)!=""]),length((SSU_hi$ES)[(SSU_hi$ES)==""])))
+
+fisher.test(S_low)
+fisher.test(S_med)
+fisher.test(S_hi)
+
+#adjust p-values for multiple comparisons
+p.adjust(c(fisher.test(S_low)$p.value,
+           fisher.test(S_med)$p.value,
+           fisher.test(S_hi)$p.value),
+         method = "BH")
+```
+
+#Distribution of iVFPs between RNA in RNA-Ribosomal_Protein (RP) contacts and other parts of the rRNA (no RP)
+##For LSU
+```{r}
+#For expected distribution
+L_tot <- LSU_total
+L_no <- nrow(subset(RPs, SUBUNIT == "L" & PROTEIN == " ")) #NO protein contact
+L_rp <- nrow(subset(RPs, SUBUNIT == "L" & PROTEIN != " "))#rRNA-RP contacts
+
+#low iVF
+L_lo_tot <- length(table(subset(RNA_variants, VF < 0.05 & SUBUNIT == "LSU")$RNA_POSITION))
+L_lo_no <- length(table(subset(RNA_variants, VF < 0.05 & SUBUNIT == "LSU" & RP == "")$RNA_POSITION))
+
+#mid iVF
+L_med_tot <- length(table(subset(RNA_variants, VF >= 0.05 & VF < 0.95 & SUBUNIT == "LSU")$RNA_POSITION))
+L_med_no <- length(table(subset(RNA_variants, VF >= 0.05 & VF < 0.95 & SUBUNIT == "LSU" & RP == "")$RNA_POSITION))
+
+#high iVF
+L_hi_tot <- length(table(subset(RNA_variants, VF >= 0.95 & SUBUNIT == "LSU")$RNA_POSITION))
+L_hi_no <- length(table(subset(RNA_variants, VF >= 0.95 & SUBUNIT == "LSU" & RP == "")$RNA_POSITION))
+
+#distribution
+L_rp_dist <- as.data.frame(cbind(c("total", "total", "low", "low", "med", "med", "high", "high"),
+                   c("no_RP", "RP", "no_RP", "RP", "no_RP", "RP", "no_RP", "RP"),
+                   c(L_no/L_tot, L_rp/L_tot, L_lo_no/L_lo_tot, 1-L_lo_no/L_lo_tot, L_med_no/L_med_tot, 1-L_med_no/L_med_tot, L_hi_no/L_hi_tot, 1-L_hi_no/L_hi_tot)
+))
+L_rp_dist$V3 <- as.numeric(L_rp_dist$V3)
+colnames(L_rp_dist) <- c("Type", "Interaction", "Frequency")
+L_rp_dist$Type <- factor(L_rp_dist$Type, levels = c("total", "low", "med", "high"))
+
+#plot
+L_pl <- ggplot(L_rp_dist, aes(fill=Interaction, y=Frequency, x=Type))+
+  geom_bar(position = "stack", stat= "identity")+
+  scale_fill_brewer(palette="Purples")+
+  theme(axis.text.y   = element_text(size = 20, color = "black"),
+        axis.text.x = element_text(size=20, color = "black"),
+        axis.title.x = element_text(size=22),
+        axis.title.y = element_text(size=22),
+        legend.text = element_text(size = 20),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  labs(title="LSU")
+```
+
+##For SSU
+```{r}
+#For expected distribution
+S_tot <- SSU_total
+S_no <- nrow(subset(RPs, SUBUNIT == "S" & PROTEIN == " ")) #NO protein contact
+S_rp <- nrow(subset(RPs, SUBUNIT == "S" & PROTEIN != " "))#rRNA-RP contacts
+
+#low iVF
+S_lo_tot <- length(table(subset(RNA_variants, VF < 0.05 & SUBUNIT == "SSU")$RNA_POSITION))
+S_lo_no <- length(table(subset(RNA_variants, VF < 0.05 & SUBUNIT == "SSU" & RP == "")$RNA_POSITION))
+
+#mid iVF
+S_med_tot <- length(table(subset(RNA_variants, VF >= 0.05 & VF < 0.95 & SUBUNIT == "SSU")$RNA_POSITION))
+S_med_no <- length(table(subset(RNA_variants, VF >= 0.05 & VF < 0.95 & SUBUNIT == "SSU" & RP == "")$RNA_POSITION))
+
+#high iVF
+S_hi_tot <- length(table(subset(RNA_variants, VF >= 0.95 & SUBUNIT == "SSU")$RNA_POSITION))
+S_hi_no <- length(table(subset(RNA_variants, VF >= 0.95 & SUBUNIT == "SSU" & RP == "")$RNA_POSITION))
+
+#distribution
+S_rp_dist <- as.data.frame(cbind(c("total", "total", "low", "low", "med", "med", "high", "high"),
+                   c("no_RP", "RP", "no_RP", "RP", "no_RP", "RP", "no_RP", "RP"),
+                   c(S_no/S_tot, S_rp/S_tot, S_lo_no/S_lo_tot, 1-S_lo_no/S_lo_tot, S_med_no/S_med_tot, 1-S_med_no/S_med_tot, S_hi_no/S_hi_tot, 1-S_hi_no/S_hi_tot)
+))
+S_rp_dist$V3 <- as.numeric(S_rp_dist$V3)
+colnames(S_rp_dist) <- c("Type", "Interaction", "Frequency")
+S_rp_dist$Type <- factor(S_rp_dist$Type, levels = c("total", "low", "med", "high"))
+
+#plot
+S_pl <- ggplot(S_rp_dist, aes(fill=Interaction, y=Frequency, x=Type))+
+  geom_bar(position = "stack", stat= "identity")+
+  scale_fill_brewer(palette="Reds")+
+  theme(axis.text.y   = element_text(size = 20, color = "black"),
+        axis.text.x = element_text(size=20, color = "black"),
+        axis.title.x = element_text(size=22),
+        axis.title.y = element_text(size=22),
+        legend.text = element_text(size = 20),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  labs(title="SSU")
+```
+
+##plot and statistics
+```{r}
+#plot
+plots(L_pl, S_pl, n_columns = 2)
+
+#statistics
+##contingency tables
+L_p_low <- rbind(c(L_rp, L_no),
+               c(L_lo_tot-L_lo_no,L_lo_no))
+
+L_p_med <- rbind(c(L_rp, L_no),
+               c(L_med_tot-L_med_no,L_med_no))
+
+L_p_hi <- rbind(c(L_rp, L_no),
+               c(L_hi_tot-L_hi_no,L_hi_no))
+
+fisher.test(L_p_low)
+fisher.test(L_p_med)
+fisher.test(L_p_hi)
+
+S_p_low <- rbind(c(S_rp, S_no),
+               c(S_lo_tot-S_lo_no,S_lo_no))
+
+S_p_med <- rbind(c(S_rp, S_no),
+               c(S_med_tot-S_med_no,S_med_no))
+
+S_p_hi <- rbind(c(S_rp, S_no),
+               c(S_hi_tot-S_hi_no,S_hi_no))
+
+fisher.test(S_p_low)
+fisher.test(S_p_med)
+fisher.test(S_p_hi)
+
+```
+
+

@@ -1,0 +1,67 @@
+---
+title: "Intersubunit bridges"
+output: html_document
+---
+Libraries
+```{r}
+
+```
+
+Data
+```{r}
+RNA_variants <- read.table("~/Desktop/work/database/updated_tables/rRNA_annotation.txt", sep = "\t",
+                           header = T, comment.char = "#")
+
+#intersubunit bridges from Ben-Shem et al. 10.1126/science.1212642 for Ribosome A. Pre-filtered for entries where a contact is made using at least one rRNA (i.e. not shown purely protein-protein bridges). Also removed contacts mediated by Os.
+bridges <- read.delim("~/Desktop/work/database/source/Intersubunit_bridges_BenShem_etal.txt",
+                      "\t",
+                      header=T, comment.char = "#")
+#remove last NA column
+bridges <- bridges[,c(1:8)] #coordinate column is character
+colnames(bridges) <- c("BRIDGE", "LARGE", "LCOORD", "LTYPE", "SMALL", "SCOORD", "STYPE", "COMMENT")
+```
+
+#Intersubunit bridges (residues for PyMOL)
+```{r}
+#only rRNA:rRNA bridges
+unique(bridges$LARGE)
+rRNA_bridges <- subset(bridges, LARGE == "25S" & SMALL == "18S")
+
+##coordinates for PyMOL
+unique(rRNA_bridges$LCOORD)
+for (i in 1:length(unique(rRNA_bridges$LCOORD))){
+ print(paste("resi", unique(rRNA_bridges$LCOORD)[i], "or"), quote = FALSE, sep = "")
+}
+
+for (i in 1:length(unique(rRNA_bridges$SCOORD))){
+ print(paste("resi", unique(rRNA_bridges$SCOORD)[i], "or"), quote = FALSE, sep = "")
+}
+
+#bridges mediated by rRNA-RP or RP-RP
+rRNA_RP_bridges <- subset(bridges, LARGE == "25S" & SMALL != "18S" | LARGE != "25S" & SMALL == "18S")
+RP_RP_bridges <- subset(bridges, LARGE != "25S" & SMALL != "18S") #shared with rRNA_RP_bridges
+
+##coordinates for PyMOL
+LSU_rRNA_from_rRNA_RP_bridges <- subset(rRNA_RP_bridges, LARGE == "25S")
+for (i in 1:length(unique(LSU_rRNA_from_rRNA_RP_bridges$LCOORD))){
+ print(paste("resi", unique(LSU_rRNA_from_rRNA_RP_bridges$LCOORD)[i], "or"), quote = FALSE, sep = "")
+}
+
+SSU_rRNA_from_rRNA_RP_bridges <- subset(rRNA_RP_bridges, SMALL == "18S")
+for (i in 1:length(unique(SSU_rRNA_from_rRNA_RP_bridges$SCOORD))){
+ print(paste("resi", unique(SSU_rRNA_from_rRNA_RP_bridges$SCOORD)[i], "or"), quote = FALSE, sep = "")
+}
+```
+
+#iVFPs within 5A of intersubunit bridges (all iVFs)
+```{r}
+#variants
+within_bridges<-subset(RNA_variants, BRIDGE_WITHIN_5A == "yes")
+unique(paste(within_bridges$DNA_REFERENCE, within_bridges$DNA_POSITION, within_bridges$DNA_ISOLATE, sep =""))
+length(unique(paste(within_bridges$DNA_REFERENCE, within_bridges$DNA_POSITION, within_bridges$DNA_ISOLATE, sep ="")))
+
+hist(within_bridges$VF*100, breaks = 19, col = "pink", main = paste("iVFP distribution of", length(unique(paste(within_bridges$DNA_REFERENCE, within_bridges$DNA_POSITION, within_bridges$DNA_ISOLATE, sep =""))), "variants within 5Å of the intersubunit bridges"),
+     xlab = "iVF, %",
+     ylab = "iVFP, n")
+
+```

@@ -1,0 +1,266 @@
+---
+title: "Environment"
+author: "Daniel Sultanov"
+date: "7/31/2022"
+output: html_document
+---
+
+Libraries
+```{r}
+library("ggplot2")
+library("dplyr")
+```
+
+Data
+```{r}
+isolates <- read.table("~/Desktop/work/database/updated_tables/Variants.txt", sep = "\t", header = T)
+
+#Assigned domestication or wild classes to isoaltes & clades; See Chiara et al., 2022 natecoevo
+##use read.delim; default looking for " only; read.table looks for ' and " ?
+delineation <- read.delim("~/Desktop/work/database/source/SupTable3_Chiara_2022.txt",
+                          sep = "\t",
+                          header = T,
+                          fill = T)
+delineation$Isolate_eco_origin <- factor(delineation$Isolate_eco_origin, levels = c("Wild", "Domesticated", "Human", "UNK"))
+
+#for 1,011 isolates
+rDNA_copynum <- read.table("~/Desktop/work/database/source/rDNA_copynumber.txt", sep = "\t", header = T)
+#for the analyzed 918 isolates (subset)
+rDNA_copy_number_only_918 <- read.table("~/Desktop/work/rDNA_project/RDN_copy_number.txt", sep = "\t", header = T)
+```
+
+#Number of variants based on wild/domesticated
+```{r}
+#isolates$VAR <- paste(isolates$REFERENCE, isolates$POSITION, isolates$ISOLATE, sep = "_")
+#number of variants per isolate
+variants_NTS <- as.data.frame(table(subset(isolates, REGION %in% c("NTS1", "NTS2"))$NAME))
+variants_ETS_ITS <- as.data.frame(table(subset(isolates, REGION %in% c("ETS1", "ETS2", "ITS1", "ITS2"))$NAME))
+variants_RNA <- as.data.frame(table(subset(isolates, REGION %in% c("5S", "5.8S", "18S", "25S"))$NAME))
+
+
+colnames(variants_NTS) <- c("NAME", "NUMBER_OF_VARS")
+variants_NTS$REGION <- rep("NTS", nrow(variants_NTS))
+colnames(variants_ETS_ITS) <- c("NAME", "NUMBER_OF_VARS")
+variants_ETS_ITS$REGION <- rep("ETS_ITS", nrow(variants_ETS_ITS))
+colnames(variants_RNA) <- c("NAME", "NUMBER_OF_VARS")
+variants_RNA$REGION <- rep("RNA", nrow(variants_RNA))
+
+#bind
+##note: this table will contain repeated isolate names bc one isolate can simultaneously have variants in NTS, ETS_RNA and/or RNA
+variants <- rbind(variants_NTS, variants_ETS_ITS, variants_RNA)
+
+
+
+#add classes of domestication
+##first, what are the available values and how many entries?
+table(delineation$Isolate_eco_origin)
+
+##note: this table will contain repeated isolate names bc one isolate can simultaneously have variants in NTS, ETS_RNA and/or RNA
+variants_NTS <- dplyr::left_join(variants_NTS, delineation, by = "NAME")
+variants_ETS_ITS <- left_join(variants_ETS_ITS, delineation, by = "NAME")
+variants_RNA <- left_join(variants_RNA, delineation, by = "NAME")
+variants <- left_join(variants, delineation, by = "NAME")
+```
+
+plot
+```{r}
+ggplot(variants_NTS, aes(x=Isolate_eco_origin, y=NUMBER_OF_VARS)) + 
+  geom_violin(fill="grey", alpha = 0.3)+
+  geom_jitter(shape=16, position=position_jitter(0.3), alpha=0.5, color = "blue", size = 1)+
+  geom_boxplot(width=.1, outlier.shape = NA, col = "darkred", fill = "pink", alpha = 0.8)+
+   theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        aspect.ratio=1.2
+        )
+
+ggplot(variants_ETS_ITS, aes(x=Isolate_eco_origin, y=NUMBER_OF_VARS)) + 
+  geom_violin(fill="orange", alpha = 0.3)+
+  geom_jitter(shape=16, position=position_jitter(0.3), alpha=0.5, color = "blue", size = 1)+
+  geom_boxplot(width=.1, outlier.shape = NA, col = "darkred", fill = "pink", alpha = 0.8)+
+   theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        aspect.ratio=1.2
+        )
+
+ggplot(variants_RNA, aes(x=Isolate_eco_origin, y=NUMBER_OF_VARS)) + 
+  geom_violin(fill="green", alpha = 0.3)+
+  geom_jitter(shape=16, position=position_jitter(0.3), alpha=0.5, color = "blue", size = 1)+
+  geom_boxplot(width=.1, outlier.shape = NA, col = "darkred", fill = "pink", alpha = 0.8)+
+   theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        aspect.ratio=1.2
+        )
+pairwise.wilcox.test(variants_NTS$NUMBER_OF_VARS, variants_NTS$Isolate_eco_origin, correct = F, p.adjust.method = "BH")
+pairwise.wilcox.test(variants_ETS_ITS$NUMBER_OF_VARS, variants_ETS_ITS$Isolate_eco_origin, correct = F, p.adjust.method = "BH")
+pairwise.wilcox.test(variants_RNA$NUMBER_OF_VARS, variants_RNA$Isolate_eco_origin, correct = F, p.adjust.method = "BH")
+
+#medians
+variants_NTS %>% group_by(Isolate_eco_origin) %>% summarise_at(vars(NUMBER_OF_VARS), median)
+variants_ETS_ITS %>% group_by(Isolate_eco_origin) %>% summarise_at(vars(NUMBER_OF_VARS), median)
+variants_RNA %>% group_by(Isolate_eco_origin) %>% summarise_at(vars(NUMBER_OF_VARS), median)
+
+
+```
+#Distribution of iVFPs in each category
+
+```{r}
+#assign lo-, mid- and high iVFP status
+VFP <- rep("X", nrow(isolates))
+for (i in 1:length(VFP)){
+  if (isolates[i,6] < 0.05){
+    VFP[i] <- "low"
+  }else if (isolates[i,6] >= 0.95){
+    VFP[i] <- "high"
+  }else{
+    VFP[i] <- "mid"
+  }
+}
+isolates$VFP <- VFP
+isolate_VFP <- select(isolates, NAME, REGION, VF, VFP)
+isolate_VFP <- left_join(isolate_VFP, delineation, by = "NAME")
+
+isolate_VFP$VFP <- factor(isolate_VFP$VFP, levels = c("high", "mid", "low"))
+
+#for NTS
+isolate_VFP_NTS <- subset(isolate_VFP, REGION %in% c("NTS1", "NTS2"))
+isolate_VFP_NTS<-select(isolate_VFP_NTS, VFP, Isolate_eco_origin)
+isolate_VFP_NTS<- as.data.frame(table(isolate_VFP_NTS))
+##add percentage
+isolate_VFP_NTS$Percent <- isolate_VFP_NTS$Freq/rep(colSums(matrix(isolate_VFP_NTS$Freq, nrow = 3)), each = 3)
+
+#ETS+ITS
+isolate_VFP_ETS <- subset(isolate_VFP, REGION %in% c("ETS1", "ETS2", "ITS1", "ITS2"))
+isolate_VFP_ETS<-select(isolate_VFP_ETS, VFP, Isolate_eco_origin)
+isolate_VFP_ETS<- as.data.frame(table(isolate_VFP_ETS))
+isolate_VFP_ETS$Percent <- isolate_VFP_ETS$Freq/rep(colSums(matrix(isolate_VFP_ETS$Freq, nrow = 3)), each = 3)
+
+#RNA
+isolate_VFP_RNA <- subset(isolate_VFP, REGION %in% c("5S", "5.8S", "18S", "25S"))
+isolate_VFP_RNA<-select(isolate_VFP_RNA, VFP, Isolate_eco_origin)
+isolate_VFP_RNA<- as.data.frame(table(isolate_VFP_RNA))
+isolate_VFP_RNA$Percent <- isolate_VFP_RNA$Freq/rep(colSums(matrix(isolate_VFP_RNA$Freq, nrow = 3)), each = 3)
+
+#statistics - compare iVFP distributions
+
+#WIlcoxon test
+##NTS
+p.adjust(c(wilcox.test(isolate_VFP_NTS[1:3,3], isolate_VFP_NTS[4:6,3], correct = F)$p.value, #wild vs dom
+           wilcox.test(isolate_VFP_NTS[1:3,3], isolate_VFP_NTS[7:9,3], correct = F)$p.value, #wild vs hum
+           wilcox.test(isolate_VFP_NTS[1:3,3], isolate_VFP_NTS[10:12,3], correct = F)$p.value, #wild vs unk
+           wilcox.test(isolate_VFP_NTS[4:6,3], isolate_VFP_NTS[7:9,3], correct = F)$p.value, #dom vs hum
+           wilcox.test(isolate_VFP_NTS[4:6,3], isolate_VFP_NTS[10:12,3], correct = F)$p.value, #dom vs unk
+           wilcox.test(isolate_VFP_NTS[7:9,3], isolate_VFP_NTS[10:12,3], correct = F)$p.value), #hum vs unk
+         method = "BH")
+
+#ETS+ITS
+p.adjust(c(wilcox.test(isolate_VFP_ETS[1:3,3], isolate_VFP_ETS[4:6,3], correct = F)$p.value, #wild vs dom
+           wilcox.test(isolate_VFP_ETS[1:3,3], isolate_VFP_ETS[7:9,3], correct = F)$p.value, #wild vs hum
+           wilcox.test(isolate_VFP_ETS[1:3,3], isolate_VFP_ETS[10:12,3], correct = F)$p.value, #wild vs unk
+           wilcox.test(isolate_VFP_ETS[4:6,3], isolate_VFP_ETS[7:9,3], correct = F)$p.value, #dom vs hum
+           wilcox.test(isolate_VFP_ETS[4:6,3], isolate_VFP_ETS[10:12,3], correct = F)$p.value, #dom vs unk
+           wilcox.test(isolate_VFP_ETS[7:9,3], isolate_VFP_ETS[10:12,3], correct = F)$p.value), #hum vs unk
+         method = "BH")
+
+#RNA
+p.adjust(c(wilcox.test(isolate_VFP_RNA[1:3,3], isolate_VFP_RNA[4:6,3], correct = F)$p.value, #wild vs dom
+           wilcox.test(isolate_VFP_RNA[1:3,3], isolate_VFP_RNA[7:9,3], correct = F)$p.value, #wild vs hum
+           wilcox.test(isolate_VFP_RNA[1:3,3], isolate_VFP_RNA[10:12,3], correct = F)$p.value, #wild vs unk
+           wilcox.test(isolate_VFP_RNA[4:6,3], isolate_VFP_RNA[7:9,3], correct = F)$p.value, #dom vs hum
+           wilcox.test(isolate_VFP_RNA[4:6,3], isolate_VFP_RNA[10:12,3], correct = F)$p.value, #dom vs unk
+           wilcox.test(isolate_VFP_RNA[7:9,3], isolate_VFP_RNA[10:12,3], correct = F)$p.value), #hum vs unk
+         method = "BH")
+```
+
+plot
+```{r}
+#NTS
+ggplot(data=isolate_VFP_NTS, aes(x=Isolate_eco_origin, y=Percent))+
+  geom_col(aes(fill=VFP), colour = "black", size = 0.1)+
+  theme(aspect.ratio=1, 
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(),
+        legend.position = "none",
+        axis.title = element_blank(),
+        axis.text.y = element_blank()
+        )+
+  coord_flip()
+
+#ETS_ITS
+ggplot(data=isolate_VFP_ETS, aes(x=Isolate_eco_origin, y=Percent))+
+  geom_col(aes(fill=VFP), colour = "black", size = 0.1)+
+  theme(aspect.ratio=1, 
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(),
+        legend.position = "none",
+        axis.title = element_blank(),
+        axis.text.y = element_blank()
+        )+
+  coord_flip()
+
+
+#RNA
+ggplot(data=isolate_VFP_RNA, aes(x=Isolate_eco_origin, y=Percent))+
+  geom_col(aes(fill=VFP), colour = "black", size = 0.1)+
+  theme(aspect.ratio=1, 
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(),
+        legend.position = "none",
+        axis.title = element_blank(),
+        axis.text.y = element_blank()
+        )+
+  coord_flip()
+
+```
+
+#rDNA copy number based on domestication status
+```{r}
+#since there is all 1,011 but I analyzed 918, use the ones for which I don't have variant data
+rDNA_copy_number_only_918 <- left_join(rDNA_copy_number_only_918, delineation, by = "NAME")
+
+```
+
+```{r}
+#plot
+ggplot(rDNA_copy_number_only_918, aes(x=Isolate_eco_origin, y=RDN_total)) + 
+  geom_violin(fill="blue", alpha = 0.3)+
+  geom_jitter(shape=16, position=position_jitter(0.3), alpha=0.5, color = "blue", size = 1)+
+  geom_boxplot(width=.1, outlier.shape = NA, col = "darkred", fill = "pink", alpha = 0.8)+
+   theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        aspect.ratio=1.2
+        )
+#stats
+pairwise.wilcox.test(rDNA_copy_number_only_918$RDN_total, rDNA_copy_number_only_918$Isolate_eco_origin, correct = F, p.adjust.method = "BH")
+#median
+rDNA_copy_number_only_918 %>% group_by(Isolate_eco_origin) %>% summarise_at(vars(RDN_total), median, na.rm = T)
+```
+
+
+

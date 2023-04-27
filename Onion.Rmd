@@ -1,0 +1,325 @@
+---
+title: "Selection profile of the yeast ribosome. Onion analysis"
+output: html_document
+---
+
+Libraries
+```{r}
+library("ggplot2")
+library("tidyverse")
+library("reshape")
+```
+
+Data
+```{r}
+RNA_variants <- read.table("~/Desktop/work/database/updated_tables/rRNA_annotation.txt", sep = "\t",
+                           header = T, comment.char = "#")
+
+#from Ribovision
+onion <- read.delim("~/Desktop/work/database/source/onion_Ribovision.txt",
+                    "\t",
+                    header = T,
+                    fileEncoding = "utf-16le"
+)
+
+onion_LSU <- subset(onion, TYPE == "25S" | TYPE == "5S" | TYPE == "5.8S")
+onion_SSU <- subset(onion, TYPE == "18S")
+
+#From Ben-Shem et al., Science 2011
+onion_ES_relation <- read.delim("~/Desktop/work/database/source/onion_ES_relation.txt",
+                 "\t",
+                 header=T,
+                 fileEncoding = "utf-16le"
+                 )
+```
+
+#For LSU
+```{r}
+#number of iVFPs
+ref <- t(t(table(onion_LSU$ONION)))
+#iVFPs distribution across shells
+low_L <- t(t(table((subset(RNA_variants, SUBUNIT == "LSU" & VF < 0.05)$SHELL))))
+med_L <- t(t(table((subset(RNA_variants, SUBUNIT == "LSU" & VF >= 0.05 & VF < 0.95)$SHELL))))
+#no mid iVFPs in shell 1 so add 0
+med_L <- rbind(c(0), med_L)
+hi_L <- t(t(table((subset(RNA_variants, SUBUNIT == "LSU" & VF >= 0.95)$SHELL))))
+#there are no high iVFPs in shell 1 so add 0's
+hi_L <- rbind(c(0), hi_L)
+
+#normalize
+ref_n <- ref/sum(ref)
+low_L_n <- low_L/sum(low_L)
+med_L_n <- med_L/sum(med_L)
+hi_L_n <- hi_L/sum(hi_L)
+
+#distribution
+LSU_dis <- rbind(ref_n, low_L_n, med_L_n, hi_L_n)
+LSU_dis <- as.data.frame(LSU_dis)
+LSU_dis$SHELL <- as.factor(rep(seq(1,7,1),4))
+LSU_dis$TYPE <- (rep(c("ref", "low", "med", "high"), each=7))
+LSU_dis$TYPE <- factor(LSU_dis$TYPE, levels = c("ref", "low", "med", "high"))
+colnames(LSU_dis) <- c("Frequency", "Shell", "Type")
+
+#merge [outermost] Shells 6+7 (bc shell 7 has only 8 nucleotides)
+LSU_dis_comb<-tribble(~"Frequency", ~"Shell", ~"Type",
+        LSU_dis[1,1], "1", "ref",
+        LSU_dis[2,1], "2", "ref",
+        LSU_dis[3,1], "3", "ref",
+        LSU_dis[4,1], "4", "ref",
+        LSU_dis[5,1], "5", "ref",
+        LSU_dis[6,1]+LSU_dis[7,1],"6+7", "ref",
+        LSU_dis[8,1], "1", "low",
+        LSU_dis[9,1], "2", "low",
+        LSU_dis[10,1], "3", "low",
+        LSU_dis[11,1], "4", "low",
+        LSU_dis[12,1], "5", "low",
+        LSU_dis[13,1]+LSU_dis[14,1],"6+7", "low",
+        LSU_dis[15,1], "1", "mid",
+        LSU_dis[16,1], "2", "mid",
+        LSU_dis[17,1], "3", "mid",
+        LSU_dis[18,1], "4", "mid",
+        LSU_dis[19,1], "5", "mid",
+        LSU_dis[20,1]+LSU_dis[21,1],"6+7", "mid",
+        LSU_dis[22,1], "1", "hi",
+        LSU_dis[23,1], "2", "hi",
+        LSU_dis[24,1], "3", "hi",
+        LSU_dis[25,1], "4", "hi",
+        LSU_dis[26,1], "5", "hi",
+        LSU_dis[27,1]+LSU_dis[28,1],"6+7", "hi",
+        )
+LSU_dis_2 <- subset(LSU_dis_comb, Type != "ref")
+LSU_dis_2$Type<- factor(LSU_dis_2$Type, levels = c("low", "mid", "hi"))
+LSU_dis_2$Frequency <- LSU_dis_2$Frequency / rep(pull(LSU_dis_comb[1:6,1], Frequency), 3)
+
+#set as a very small number to mid shell_1 and hi shell_1 to remove "-inf" from log plot (since they == 0)
+LSU_dis_2[7,1] <- 0.01
+LSU_dis_2[13,1] <- 0.01
+
+#plot
+ggplot(LSU_dis_2, aes(x=Shell, y=log10(Frequency), fill=Type))+
+  geom_bar(stat="identity", color="black", position=position_dodge(), size=0.4)+
+  theme(axis.text   = element_text(size=20, color = "black"),
+        axis.title = element_text(size=22),
+        legend.text = element_text(size = 20),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  ylim(-2,2)+
+  scale_fill_manual(values = c("#91edff", "#88afff", "#7070ff"))+
+  labs(title = "LSU")
+
+#statistics
+ref_2 <- c(ref[1:5], ref[6]+ref[7])
+low_L_2 <- c(low_L[1:5],low_L[6]+low_L[7])
+med_L_2 <- c(med_L[1:5],med_L[6]+med_L[7])
+hi_L_2 <- c(hi_L[1:5],hi_L[6]+hi_L[7])
+
+#w/o continuity correction
+wilcox.test(low_L_2, ref_2, correct = F) # p-val = 0.026 not adj
+wilcox.test(med_L_2, ref_2, correct = F) # p-val = 0.009 not adj
+wilcox.test(hi_L_2, ref_2, correct = F) # p-val = 0.006 not adj
+
+#adjust p-values for multiple comparisons
+p.adjust(c(wilcox.test(low_L_2, ref_2, correct = F)$p.value,
+           wilcox.test(med_L_2, ref_2, correct = F)$p.value,
+           wilcox.test(hi_L_2, ref_2, correct = F)$p.value),
+         method = "BH")
+
+```
+#For SSU
+```{r}
+#number of iVFPs
+ref_S <- t(t(table(onion_SSU$ONION)))
+low_S <- t(t(table((subset(RNA_variants, SUBUNIT == "SSU" & VF < 0.05)$SHELL))))
+med_S <- t(t(table((subset(RNA_variants, SUBUNIT == "SSU" & VF >= 0.05 & VF < 0.95)$SHELL))))
+hi_S <- t(t(table((subset(RNA_variants, SUBUNIT == "SSU" & VF >= 0.95)$SHELL))))
+#there are no high iVFPs in shells 1,2,8 so add 0's
+hi_S <- rbind(matrix(0,2,1), hi_S, matrix(0,1,1))
+
+#normalize
+ref_S_n <- ref_S/sum(ref_S)
+low_S_n <- low_S/sum(low_S)
+med_S_n <- med_S/sum(med_S)
+hi_S_n <- hi_S/sum(hi_S)
+
+#distribution
+SSU_dis <- rbind(ref_S_n, low_S_n, med_S_n, hi_S_n)
+SSU_dis <- as.data.frame(SSU_dis)
+SSU_dis$SHELL <- as.factor(rep(seq(1,8,1),4))
+SSU_dis$TYPE <- (rep(c("ref", "low", "med", "high"), each=8))
+SSU_dis$TYPE <- factor(SSU_dis$TYPE, levels = c("ref", "low", "med", "high"))
+colnames(SSU_dis) <- c("Frequency", "Shell", "Type")
+
+#merge [outermost] shells 6+7+8
+SSU_dis_comb<-tribble(~"Frequency", ~"Shell", ~"Type",
+        SSU_dis[1,1], "1", "ref",
+        SSU_dis[2,1], "2", "ref",
+        SSU_dis[3,1], "3", "ref",
+        SSU_dis[4,1], "4", "ref",
+        SSU_dis[5,1], "5", "ref",
+        SSU_dis[6,1]+SSU_dis[7,1]+SSU_dis[8,1],"6+7+8", "ref",
+        SSU_dis[9,1], "1", "low",
+        SSU_dis[10,1], "2", "low",
+        SSU_dis[11,1], "3", "low",
+        SSU_dis[12,1], "4", "low",
+        SSU_dis[13,1], "5", "low",
+        SSU_dis[14,1]+SSU_dis[15,1]+SSU_dis[16,1],"6+7+8", "low",
+        SSU_dis[17,1], "1", "mid",
+        SSU_dis[18,1], "2", "mid",
+        SSU_dis[19,1], "3", "mid",
+        SSU_dis[20,1], "4", "mid",
+        SSU_dis[21,1], "5", "mid",
+        SSU_dis[22,1]+SSU_dis[23,1]+SSU_dis[24,1],"6+7+8", "mid",
+        SSU_dis[25,1], "1", "hi",
+        SSU_dis[26,1], "2", "hi",
+        SSU_dis[27,1], "3", "hi",
+        SSU_dis[28,1], "4", "hi",
+        SSU_dis[29,1], "5", "hi",
+        SSU_dis[30,1]+SSU_dis[31,1]+SSU_dis[32,1],"6+7+8", "hi",
+        )
+SSU_dis_2 <- subset(SSU_dis_comb, Type != "ref")
+SSU_dis_2$Type<- factor(SSU_dis_2$Type, levels = c("low", "mid", "hi"))
+SSU_dis_2$Frequency <- SSU_dis_2$Frequency / rep(pull(SSU_dis_comb[1:6,1], Frequency), 3)
+
+#set as a very small number to remove "-inf" from log plot (since they == 0)
+SSU_dis_2[13,1] <- 0.01
+SSU_dis_2[14,1] <- 0.01
+
+#plot
+ggplot(SSU_dis_2, aes(x=Shell, y=log10(Frequency), fill=Type))+
+  geom_bar(stat="identity", color="black", position=position_dodge(), size=0.4)+
+  theme(axis.text   = element_text(size=20, color = "black"),
+        axis.title = element_text(size=22),
+        legend.text = element_text(size = 20),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  ylim(-2,2)+
+  scale_fill_manual(values = c("#fcddb3", "#f3b372", "#e38930"))+
+  labs(title = "SSU")
+
+#statistics
+ref_S_2 <- c(ref_S[1:5], sum(ref_S[6:8]))
+low_S_2 <- c(low_S[1:5], sum(low_S[6:8]))
+med_S_2 <- c(med_S[1:5], sum(med_S[6:8]))
+hi_S_2 <- c(hi_S[1:5], sum(hi_S[6:8]))
+
+#w/o continuity correction
+wilcox.test(low_S_2, ref_S_2, correct = F) # p-val = 0.015 not adj
+wilcox.test(med_S_2, ref_S_2, correct = F) # p-val = 0.004 not adj
+wilcox.test(hi_S_2, ref_S_2, correct = F) # p-val = 0.004 not adj
+
+#adjust p-values for multiple comparisons
+p.adjust(c(wilcox.test(low_S_2, ref_S_2, correct = F)$p.value,
+           wilcox.test(med_S_2, ref_S_2, correct = F)$p.value,
+           wilcox.test(hi_S_2, ref_S_2, correct = F)$p.value),
+         method = "BH")
+```
+#Distribution of expansion segment (ES) nucleotides across shells
+```{r}
+#for LSU
+LSU_onion_ES <- subset(onion_ES_relation, TYPE %in% c("5S", "5.8S", "25S"))
+LSU_onion_ES_tab <- table(LSU_onion_ES[,c(4,5)])
+#merge shells 6 and 7
+LSU_onion_ES_tab <- rbind(LSU_onion_ES_tab[1:5,], LSU_onion_ES_tab[6,]+LSU_onion_ES_tab[7,])
+#add fractions
+#for non-ES nucleotides ("no")
+LSU_onion_ES_tab <- cbind(LSU_onion_ES_tab, LSU_onion_ES_tab[,1]/(LSU_onion_ES_tab[,1]+LSU_onion_ES_tab[,2]))
+#for ES nucleotides ("yes")
+LSU_onion_ES_tab <- cbind(LSU_onion_ES_tab, LSU_onion_ES_tab[,2]/(LSU_onion_ES_tab[,1]+LSU_onion_ES_tab[,2]))
+#rename columns
+colnames(LSU_onion_ES_tab) <- c("no", "yes", "no_frac", "yes_frac")
+#convert into dataframe
+LSU_onion_ES_df <- as.data.frame(LSU_onion_ES_tab[,c(3,4)])
+#add shells as column and melt data
+LSU_onion_ES_df$shell <- c("1", "2", "3", "4", "5", "6+7")
+colnames(LSU_onion_ES_df) <- c("no_frac", "yes_frac", "shell")
+LSU_onion_ES_df <- reshape::melt(LSU_onion_ES_df)
+colnames(LSU_onion_ES_df) <- c("shell", "type", "fraction")
+#plot
+ggplot(LSU_onion_ES_df, aes(fill=type, y=fraction, x=shell))+
+  geom_bar(position = "stack", stat= "identity")+
+  scale_fill_brewer(palette="Blues")+
+  theme(axis.text   = element_text(size=20, color = "black"),
+        axis.title = element_text(size=22),
+        legend.text = element_text(size = 20),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  labs(title="LSU")
+
+#for SSU
+SSU_onion_ES <- subset(onion_ES_relation, TYPE %in% c("18S"))
+SSU_onion_ES_tab <- table(SSU_onion_ES[,c(4,5)])
+#merge shells 6+7+8
+SSU_onion_ES_tab <- rbind(SSU_onion_ES_tab[1:5,], SSU_onion_ES_tab[6,]+SSU_onion_ES_tab[7,]+SSU_onion_ES_tab[8,])
+#add fractions
+#for non-ES nucleotides ("no")
+SSU_onion_ES_tab <- cbind(SSU_onion_ES_tab, SSU_onion_ES_tab[,1]/(SSU_onion_ES_tab[,1]+SSU_onion_ES_tab[,2]))
+#for ES nucleotides ("yes")
+SSU_onion_ES_tab <- cbind(SSU_onion_ES_tab, SSU_onion_ES_tab[,2]/(SSU_onion_ES_tab[,1]+SSU_onion_ES_tab[,2]))
+#rename columns
+colnames(SSU_onion_ES_tab) <- c("no", "yes", "no_frac", "yes_frac")
+#convert into dataframe
+SSU_onion_ES_df <- as.data.frame(SSU_onion_ES_tab[,c(3,4)])
+#add shells as column and melt data
+SSU_onion_ES_df$shell <- c("1", "2", "3", "4", "5", "6+7+8")
+colnames(SSU_onion_ES_df) <- c("no_frac", "yes_frac", "shell")
+SSU_onion_ES_df <- reshape::melt(SSU_onion_ES_df)
+colnames(SSU_onion_ES_df) <- c("shell", "type", "fraction")
+#plot
+ggplot(SSU_onion_ES_df, aes(fill=type, y=fraction, x=shell))+
+  geom_bar(position = "stack", stat= "identity")+
+  scale_fill_brewer(palette="Oranges")+
+  theme(axis.text   = element_text(size=20, color = "black"),
+        axis.title = element_text(size=22),
+        legend.text = element_text(size = 20),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  labs(title="SSU")
+```
+Due to the missing segments in the LSU and SSU structures, some onion shells are NAs and some iVFPs detected in Fig. 1 (in the manuscript) are not included in the analysis:
+```{r}
+#Excluded number of iVFPs in the LSU
+##low iVFPs excluded
+nrow(subset(RNA_variants, is.na(SHELL) & VF < 0.05 & SUBUNIT == "LSU"))
+##total low iVFPs
+nrow(subset(RNA_variants, VF < 0.05 & SUBUNIT == "LSU"))
+##mid iVFPs excluded
+nrow(subset(RNA_variants, is.na(SHELL) & VF >= 0.05 & VF < 0.95 & SUBUNIT == "LSU"))
+##total mid iVFPs
+nrow(subset(RNA_variants, VF >= 0.05 & VF < 0.95 & SUBUNIT == "LSU"))
+##high iVFPs
+nrow(subset(RNA_variants, is.na(SHELL) & VF >= 0.95 & SUBUNIT == "LSU"))
+##total high iVFPs
+nrow(subset(RNA_variants, VF >= 0.95 & SUBUNIT == "LSU"))
+
+#Excluded number of iVFPs in the SSU
+##low iVFPs excluded
+nrow(subset(RNA_variants, is.na(SHELL) & VF < 0.05 & SUBUNIT == "SSU"))
+##total low iVFPs
+nrow(subset(RNA_variants, VF < 0.05 & SUBUNIT == "SSU"))
+##mid iVFPs excluded
+nrow(subset(RNA_variants, is.na(SHELL) & VF >= 0.05 & VF < 0.95 & SUBUNIT == "SSU"))
+##total mid iVFPs
+nrow(subset(RNA_variants, VF >= 0.05 & VF < 0.95 & SUBUNIT == "SSU"))
+##high iVFPs
+nrow(subset(RNA_variants, is.na(SHELL) & VF >= 0.95 & SUBUNIT == "SSU"))
+##total high iVFPs
+nrow(subset(RNA_variants, VF >= 0.95 & SUBUNIT == "SSU"))
+```
+
+
