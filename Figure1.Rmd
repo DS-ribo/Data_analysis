@@ -1,0 +1,774 @@
+---
+title: "Data_filtering_2_and_rDNA_copy_number_estimates"
+output: html_document
+---
+
+```{r}
+#Packages
+library("dplyr")
+library("ggplot2")
+library("ggridges")
+library("see")
+library("RColorBrewer")
+```
+
+## Values are given for haploid genome and already adjusted for aneuploidies
+```{r}
+##Data
+#the values are given for a haploid genome (and adjusted for aneuploidies(?))
+filtered_vars <- read.table("~/Desktop/work/database/updated_tables/Variants.txt", sep = "\t", header = T)
+poly_mers <- read.table("~/Desktop/work/rDNA_analysis2/homopolymer_POS.txt", sep = "\t", header = T)
+clade <- read.table("~/Desktop/work/database/source/Clades.txt", sep = "\t", header = T)
+niche <- read.table("~/Desktop/work/database/source/Eco_origin_from_Peter_etal.txt", sep = "\t", header = T)
+colnames(clade) <- c("NAME", "CLADE", "ABBREVIATION", "BIG_CLADE", "TREE_PAPER")
+#for names of the 918 isolates
+rDNA_copy_number_only_918 <- read.table("~/Desktop/work/rDNA_project/RDN_copy_number.txt", sep = "\t", header = T)
+rDNA_copynum <- read.table("~/Desktop/work/database/source/rDNA_copynumber.txt", sep = "\t", header = T)
+```
+
+#plot
+```{r}
+plot(filtered_vars$POSITION, filtered_vars$VF*100, 
+     col=as.factor(filtered_vars$ACCESSION), 
+     xlim = c(1,9137), ylim = c(0,100), 
+     pch=16,
+     cex=0.2,
+     xlab="Position, nt",
+     ylab="VF,%",
+     main=("Filtered data"))
+rect(2280, 0, 2490, 100, col=alpha("orange", 0.15), border = NA) #ETS2
+rect(5887, 0, 6118, 100, col=alpha("orange", 0.15), border = NA) #ITS2
+rect(6277, 0, 6637, 100, col=alpha("orange", 0.15), border = NA) #ITS1
+rect(8438, 0, 9137, 100, col=alpha("orange", 0.15), border = NA) #ETS1
+rect(1244, 0, 1364, 100, col=alpha("green", 0.15), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.15), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.15), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.15), border = NA) #18S
+hist(filtered_vars$POS, xlab = "", border="blue", breaks=seq(11,9099,by=1), xaxt="n", main=NA, yaxt="n")
+axis(side=4, at=c(0,925), las=2, lwd=0, lwd.ticks = 1, cex.axis=1.7, col.axis="blue")
+mtext(text = "VFPs", side = 2, cex=1.1, col="blue")
+```
+#Minimum VF % that correspond to one rDNA copy
+```{r}
+isolate_onecopyVF <- unique(select(filtered_vars, NAME, one_copy_VF)) #917 instead of 918 isolates?
+hist(isolate_onecopyVF$one_copy_VF*100, breaks = 42, xlim = c(0,3.5), xaxt = "n")
+axis(1, at = seq(0.2, 3.4, by = 0.1))
+#median
+abline(v = median(isolate_onecopyVF$one_copy_VF*100), col = "red")
+
+#median VF, %
+median(isolate_onecopyVF$one_copy_VF*100)
+```
+
+
+#Summary statistics for genic elements in the rDNA
+##Adjusted element length 
+```{r}
+#adjusted length of each element because homopolymer tracts were excluded from analysis (see pipeline)
+#note: for structural rRNA analysis (e.g. onion), additional adjustment is required since some of the segments are not crystallized
+#for NTS2 and ETS1 additionally: NTS2-10bp and ETS1-37bp (bc end positions were filtered out)
+
+table(poly_mers$REGION)
+
+element_length<-tribble(~"REGION", ~"Real_length", ~"Adjusted_length",
+        "NTS1", 915, 915-125,
+        "NTS2", 1243, 1243-10-25,
+        "ETS1", 700, 700-37-28,
+        "ETS2", 211, 211-10,
+        "ITS1", 361, 361-14,
+        "ITS2", 232, 232-12,
+        "5S", 121, 121,
+        "5.8S", 158, 158,
+        "18S", 1800, 1800,
+        "25S", 3396, 3396-6)
+element_length$Fraction <- element_length$Adjusted_length/sum(element_length$Adjusted_length)
+
+```
+
+##Polymorphic sites in each element
+```{r}
+polymorphic_sites <- as.data.frame(table((unique(filtered_vars[,c(3,9)]))$REGION))
+colnames(polymorphic_sites) <- c("REGION", "Number_of_poly_sites")
+polymorphic_sites <- polymorphic_sites %>% mutate(REGION = factor(REGION, levels = element_length$REGION)) %>% arrange(REGION)
+polymorphic_sites$Frequency <- polymorphic_sites$Number_of_poly_sites/element_length$Adjusted_length
+```
+
+##Type of variant (indel or SNP)
+```{r}
+variants<-as.data.frame(unique(paste(filtered_vars$REFERENCE, filtered_vars$POSITION, filtered_vars$ISOLATE, filtered_vars$INDEL, filtered_vars$REGION, sep = "_")))
+colnames(variants) <- "VAR"
+
+variants <- variants %>% tidyr::separate(VAR, c("REFERENCE", "POSITION", "ISOLATE", "INDEL", "REGION"), "_")
+
+variants_SNV <- subset(variants, INDEL != "INDEL")
+variants_indel <- subset(variants, INDEL == "INDEL")
+
+variants_SNV_count <- as.data.frame(table(variants_SNV$REGION)) %>% mutate(Var1 = factor(Var1, levels = element_length$REGION)) %>% arrange(Var1)
+colnames(variants_SNV_count) <- c("REGION", "SNV")
+
+variants_indel_count <- as.data.frame(table(variants_indel$REGION))
+colnames(variants_indel_count) <- c("REGION", "INDEL")
+#idk why changing colnames or other unrelated things change numeric to character
+variants_indel_count$INDEL <- as.numeric(variants_indel_count$INDEL)
+variants_indel_count$REGION <- as.character(variants_indel_count$REGION)
+variants_indel_count <- rbind(variants_indel_count, c("5.8S", 0))
+variants_indel_count <- variants_indel_count %>% mutate(REGION = factor(REGION, levels = element_length$REGION)) %>% arrange(REGION)
+
+variant_type<-cbind(variants_SNV_count, variants_indel_count$INDEL)
+colnames(variant_type) <- c("REGION", "SNV", "INDEL")
+variant_type$INDEL <- as.numeric(variant_type$INDEL)
+variant_type$SNV_frac <- variant_type$SNV / (variant_type$SNV + variant_type$INDEL)
+variant_type$INDEL_frac <- variant_type$INDEL / (variant_type$SNV + variant_type$INDEL)
+
+```
+
+##VFPs SNV / indel
+```{r}
+VFPs_SNV <- as.data.frame(table((subset(filtered_vars, INDEL != "INDEL"))$REGION))
+colnames(VFPs_SNV) <- c("REGION", "SNV")
+VFPs_SNV <- VFPs_SNV %>% mutate(REGION = factor(REGION, levels = element_length$REGION)) %>% arrange(REGION)
+
+VFPs_indel <- as.data.frame(table((subset(filtered_vars, INDEL == "INDEL"))$REGION))
+colnames(VFPs_indel) <- c("REGION", "INDEL")
+VFPs_indel$REGION <- as.character(VFPs_indel$REGION)
+VFPs_indel<-rbind(VFPs_indel, c("5.8S", 0))
+VFPs_indel$INDEL <- as.numeric(VFPs_indel$INDEL)
+VFPs_indel <- VFPs_indel %>% mutate(REGION = factor(REGION, levels = element_length$REGION)) %>% arrange(REGION)
+
+VFPs <- cbind(VFPs_SNV, VFPs_indel$INDEL)
+colnames(VFPs) <- c("REGION", "SNV", "INDEL")
+VFPs$SNV_frac <- VFPs$SNV / (VFPs$SNV+VFPs$INDEL)
+VFPs$INDEL_frac <- VFPs$INDEL / (VFPs$SNV+VFPs$INDEL)
+```
+
+##VFPs low / mid / high
+```{r}
+VFPs_category <- tribble(~"VF", ~"REGION", ~"COUNT", 
+                     "low", "NTS1", nrow(subset(filtered_vars, VF < 0.05 & REGION == "NTS1")),
+                     "med", "NTS1", nrow(subset(filtered_vars, VF < 0.95 & VF >= 0.05 & REGION == "NTS1")),
+                     "hi", "NTS1", nrow(subset(filtered_vars, VF >= 0.95  & REGION == "NTS1")),
+                     "low", "NTS2", nrow(subset(filtered_vars, VF < 0.05 & REGION == "NTS2")),
+                     "med", "NTS2", nrow(subset(filtered_vars, VF < 0.95 & VF >= 0.05 & REGION == "NTS2")),
+                     "hi", "NTS2", nrow(subset(filtered_vars, VF >= 0.95  & REGION == "NTS2")),
+                     "low", "ETS1", nrow(subset(filtered_vars, VF < 0.05 & REGION == "ETS1")),
+                     "med", "ETS1", nrow(subset(filtered_vars, VF < 0.95 & VF >= 0.05 & REGION == "ETS1")),
+                     "hi", "ETS1", nrow(subset(filtered_vars, VF >= 0.95  & REGION == "ETS1")),
+                     "low", "ETS2", nrow(subset(filtered_vars, VF < 0.05 & REGION == "ETS2")),
+                     "med", "ETS2", nrow(subset(filtered_vars, VF < 0.95 & VF >= 0.05 & REGION == "ETS2")),
+                     "hi", "ETS2", nrow(subset(filtered_vars, VF >= 0.95  & REGION == "ETS2")),
+                     "low", "ITS1", nrow(subset(filtered_vars, VF < 0.05 & REGION == "ITS1")),
+                     "med", "ITS1", nrow(subset(filtered_vars, VF < 0.95 & VF >= 0.05 & REGION == "ITS1")),
+                     "hi", "ITS1", nrow(subset(filtered_vars, VF >= 0.95  & REGION == "ITS1")),
+                     "low", "ITS2", nrow(subset(filtered_vars, VF < 0.05 & REGION == "ITS2")),
+                     "med", "ITS2", nrow(subset(filtered_vars, VF < 0.95 & VF >= 0.05 & REGION == "ITS2")),
+                     "hi", "ITS2", nrow(subset(filtered_vars, VF >= 0.95  & REGION == "ITS2")),
+                     "low", "5S", nrow(subset(filtered_vars, VF < 0.05 & REGION == "5S")),
+                     "med", "5S", nrow(subset(filtered_vars, VF < 0.95 & VF >= 0.05 & REGION == "5S")),
+                     "hi", "5S", nrow(subset(filtered_vars, VF >= 0.95  & REGION == "5S")),
+                     "low", "5.8S", nrow(subset(filtered_vars, VF < 0.05 & REGION == "5.8S")),
+                     "med", "5.8S", nrow(subset(filtered_vars, VF < 0.95 & VF >= 0.05 & REGION == "5.8S")),
+                     "hi", "5.8S", nrow(subset(filtered_vars, VF >= 0.95  & REGION == "5.8S")),
+                     "low", "18S", nrow(subset(filtered_vars, VF < 0.05 & REGION == "18S")),
+                     "med", "18S", nrow(subset(filtered_vars, VF < 0.95 & VF >= 0.05 & REGION == "18S")),
+                     "hi", "18S", nrow(subset(filtered_vars, VF >= 0.95  & REGION == "18S")),
+                     "low", "25S", nrow(subset(filtered_vars, VF < 0.05 & REGION == "25S")),
+                     "med", "25S", nrow(subset(filtered_vars, VF < 0.95 & VF >= 0.05 & REGION == "25S")),
+                     "hi", "25S", nrow(subset(filtered_vars, VF >= 0.95  & REGION == "25S")),
+                     )
+
+VFPs_category$VF <- factor(VFPs_category$VF, levels=c("hi", "med", "low"))
+VFPs_category$REGION <- factor(VFPs_category$REGION, levels = c("25S", "18S", "5.8S", "5S", "ITS2", "ITS1", "ETS2", "ETS1", "NTS2", "NTS1"))
+
+VFPs_category$Fraction <- VFPs_category$COUNT/rep(colSums(matrix(VFPs_category$COUNT, nrow = 3)), each = 3)
+```
+
+
+##plot
+```{r}
+#Element length in rDNA
+element_length$REGION <- factor(element_length$REGION, levels = c("25S", "18S", "5.8S", "5S", "ITS2", "ITS1", "ETS2", "ETS1", "NTS2", "NTS1"))
+p1 <- ggplot(data=element_length, aes(x=REGION, y=Fraction))+
+  geom_col(fill = "#00A79D", color = "black", size = 0.1)+
+  theme(aspect.ratio=3, 
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(),
+        #axis.text.y = element_blank(),
+        axis.title = element_blank()
+        )+
+  coord_flip()+
+  ylim(0,0.5)
+
+#Polymorphic sites
+polymorphic_sites$REGION <- factor(polymorphic_sites$REGION, levels = c("25S", "18S", "5.8S", "5S", "ITS2", "ITS1", "ETS2", "ETS1", "NTS2", "NTS1"))
+p2 <- ggplot(data=polymorphic_sites, aes(x=REGION, y=Frequency))+
+  geom_col(fill = "#D7DF23", color = "black", size = 0.1)+
+  theme(aspect.ratio=3, 
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(),
+        axis.title = element_blank(),
+        axis.text.y   = element_blank()
+        )+
+  coord_flip()+
+  ylim(0,0.5)
+
+#Variants - number of observed variants and fraction of single-nucleotide variants (SNVs) and indels
+variant_type$REGION <- factor(variant_type$REGION, levels = c("25S", "18S", "5.8S", "5S", "ITS2", "ITS1", "ETS2", "ETS1", "NTS2", "NTS1"))
+variant_type_fraction <- variant_type[,c(1,4,5)]
+variant_type_fraction <- reshape::melt(variant_type_fraction)
+variant_type_fraction$variable <- factor(variant_type_fraction$variable, levels = c("INDEL_frac", "SNV_frac"))
+p3 <- ggplot(data=variant_type_fraction, aes(x=REGION, y=value))+
+  geom_col(aes(fill=variable), colour = "black", size = 0.1)+
+  theme(aspect.ratio=3, 
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(),
+        legend.position = "none",
+        axis.title = element_blank(),
+        axis.text.y = element_blank()
+        )+
+  coord_flip()+
+  scale_fill_manual(values = c("#D3B6D7", "#C7EAFB"))
+
+#VFPs - number of VFPs across all isolates and fraction SNVs and indels
+VFPs$REGION <- factor(VFPs$REGION, levels = c("25S", "18S", "5.8S", "5S", "ITS2", "ITS1", "ETS2", "ETS1", "NTS2", "NTS1"))
+VFPs_fraction <- VFPs[,c(1,4,5)]
+VFPs_fraction<-reshape::melt(VFPs_fraction)
+VFPs_fraction$variable<-factor(VFPs_fraction$variable, levels = c("INDEL_frac", "SNV_frac"))
+p4 <- ggplot(data=VFPs_fraction, aes(x=REGION, y=value))+
+    geom_col(aes(fill=variable), colour = "black", size = 0.1)+
+    theme(aspect.ratio=3, 
+          panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank(), 
+          panel.background = element_blank(),
+          legend.position = "none",
+          axis.title = element_blank(),
+          axis.text.y = element_blank()
+    )+
+    coord_flip()+
+    scale_fill_manual(values = c("#D3B6D7", "#C7EAFB"))
+
+#VFPs - low/med/hi VFs groups
+
+VFPs_category_fraction <- VFPs_category[,c(2,1,4)]
+p5<-ggplot(data=VFPs_category_fraction, aes(x=REGION, y=Fraction, fill=VF))+
+  geom_col(position="stack", colour = "black", size = 0.1)+
+  theme(aspect.ratio=3, 
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(),
+        axis.title = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "none"
+        )+
+  coord_flip()+
+  scale_fill_brewer(palette = "Set2")
+
+#plot all together
+see::plots(p1, p2, p3, p4, p5, n_columns = 5)
+```
+#Distribution of the number of rDNA variants per isolate
+##Non-fixed
+To explore the degree of heterogeneity of rDNA within each isolate, calculate *for each isolate* how many *non-fixed* variants are there. This means: for each isolate, take variants with VF(theoretical_one_rDNA_copy) < VF < 1-VF(theoretical_one_rDNA_copy). For example, if VAR has VF ~ 0.997, but theoretical one-rDNA-copy VF for this isolate is 0.007, this means the VAR is fully fixed at this POS and there is no variation_within_this_genome
+```{r}
+#calculate max theoretical VF
+upper_VF <- rep(1,nrow(filtered_vars)) - filtered_vars$one_copy_VF
+#calculate difference between max theoretical VF and observed VF
+difference_up <- upper_VF - filtered_vars$VF
+unfixed_vars <- cbind(filtered_vars, difference_up)
+
+#keep unfixed within each isolate VARs
+unfixed_vars<-subset(unfixed_vars, unfixed_vars$difference_up >= 0)
+
+#plot distributions
+all_iso <- table(unfixed_vars$NAME)
+NTS_iso <- table((subset(unfixed_vars, REGION %in% c("NTS1", "NTS2")))$NAME)
+ITS_iso <- table((subset(unfixed_vars, REGION %in% c("ITS1", "ITS2", "ETS1", "ETS2")))$NAME)
+RRNA_iso <- table((subset(unfixed_vars, REGION %in% c("5S", "5.8S", "18S", "25S")))$NAME) #isolate BAM has 40 RRNA variants
+
+hist(all_iso, main = "Total rDNA", breaks=seq(0,80,1), col = "darkblue", ylim = c(0,70))
+hist(NTS_iso, main = "NTS", breaks=seq(0,80,1), col = "#A5ABB2", ylim = c(0,120))
+hist(ITS_iso, main = "ETS+ITS",breaks=seq(0,80,1), col = "#F7941D", ylim = c(0,151))
+hist(RRNA_iso, main = "rRNA", breaks=seq(0,80,1), col = "#1AE21A", ylim = c(0,250))
+
+#medians
+median(all_iso)
+median(NTS_iso)
+median(ITS_iso)
+median(RRNA_iso)
+```
+##All
+
+```{r}
+#plot distributions
+all_rDNA_all_iso <- table(filtered_vars$NAME)
+all_rDNA_NTS_iso <- table((subset(filtered_vars, REGION %in% c("NTS1", "NTS2")))$NAME)
+all_rDNA_ITS_iso <- table((subset(filtered_vars, REGION %in% c("ITS1", "ITS2", "ETS1", "ETS2")))$NAME)
+all_rDNA_RRNA_iso <- table((subset(filtered_vars, REGION %in% c("5S", "5.8S", "18S", "25S")))$NAME)
+
+hist(all_rDNA_all_iso, main = "Total rDNA", breaks=seq(0,80,1), col = "darkblue", ylim = c(0,50))
+hist(all_rDNA_NTS_iso, main = "NTS", breaks=seq(0,80,1), col = "#A5ABB2", ylim = c(0,100))
+hist(all_rDNA_ITS_iso, main = "ETS+ITS",breaks=seq(0,80,1), col = "#F7941D")
+hist(all_rDNA_RRNA_iso, main = "rRNA", breaks=seq(0,80,1), col = "#1AE21A", ylim = c(0,250))
+
+#medians
+median(all_rDNA_all_iso)
+median(all_rDNA_NTS_iso)
+median(all_rDNA_ITS_iso)
+median(all_rDNA_RRNA_iso)
+```
+
+
+
+
+Plot isolate "BAM"
+```{r}
+plot((subset(filtered_vars, NAME == "BAM"))$POSITION, (subset(filtered_vars, NAME == "BAM"))$VF*100,
+     main = "BAM",
+     col="hotpink", 
+     xlim = c(1,9137), ylim = c(0,100), 
+     pch=16,
+     cex=1,
+     xlab="Position, nt",
+     ylab="VF,%")
+rect(2280, 0, 2490, 100, col=alpha("orange", 0.15), border = NA) #ETS2
+rect(5887, 0, 6118, 100, col=alpha("orange", 0.15), border = NA) #ITS2
+rect(6277, 0, 6637, 100, col=alpha("orange", 0.15), border = NA) #ITS1
+rect(8438, 0, 9137, 100, col=alpha("orange", 0.15), border = NA) #ETS1
+rect(1244, 0, 1364, 100, col=alpha("green", 0.15), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.15), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.15), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.15), border = NA) #18S
+
+
+#zoom in
+
+plot((subset(filtered_vars, NAME == "BAM"))$POSITION, (subset(filtered_vars, NAME == "BAM"))$VF*100,
+     main = "BAM",
+     col="hotpink", 
+     xlim = c(1,9137), ylim = c(0,5), 
+     pch=16,
+     cex=1,
+     xlab="Position, nt",
+     ylab="VF,%")
+rect(2280, 0, 2490, 100, col=alpha("orange", 0.15), border = NA) #ETS2
+rect(5887, 0, 6118, 100, col=alpha("orange", 0.15), border = NA) #ITS2
+rect(6277, 0, 6637, 100, col=alpha("orange", 0.15), border = NA) #ITS1
+rect(8438, 0, 9137, 100, col=alpha("orange", 0.15), border = NA) #ETS1
+rect(1244, 0, 1364, 100, col=alpha("green", 0.15), border = NA) #5S
+rect(2491, 0, 5886, 100, col=alpha("green", 0.15), border = NA) #25S
+rect(6119, 0, 6276, 100, col=alpha("green", 0.15), border = NA) #5.8S
+rect(6638, 0, 8437, 100, col=alpha("green", 0.15), border = NA) #18S
+```
+
+#VFP distribution based on clade
+
+```{r}
+var_clade<-merge(filtered_vars, clade, by = "NAME")
+
+colourCount = length(unique(var_clade$CLADE))
+getPalette = colorRampPalette(brewer.pal(9, "Greys"))
+
+NTS_plot <- ggplot(subset(var_clade, REGION %in% c("NTS1", "NTS2")), aes(x=VF*100,y=BIG_CLADE))+
+  geom_density_ridges(aes(fill = BIG_CLADE), size=0.2)+
+  theme(#axis.text   = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none",
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  scale_y_discrete(limits=rev)+
+  scale_fill_manual(values = getPalette(colourCount))+
+  xlim(c(0,100))
+
+
+getPalette = colorRampPalette(brewer.pal(9, "Oranges"))
+
+ETS_ITS_plot <- ggplot(subset(var_clade, REGION %in% c("ITS1", "ITS2", "ETS1", "ETS2")), aes(x=VF*100,y=BIG_CLADE))+
+  geom_density_ridges(aes(fill = BIG_CLADE), size=0.2)+
+  theme(axis.text   = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none",
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  scale_y_discrete(limits=rev)+
+  scale_fill_manual(values = getPalette(colourCount))+
+  xlim(c(0,100))
+  
+getPalette = colorRampPalette(brewer.pal(9, "Greens"))
+
+var_clade$BIG_CLADE<-factor(var_clade$BIG_CLADE, level = names(table((subset(var_clade, REGION %in% c("NTS1", "NTS2"))$BIG_CLADE))))
+
+#there is zero Far east russian VFPs in RRNA. Add '0' so it can be plotted
+
+RRNA_VFPs <- subset(var_clade, REGION %in% c("5S", "5.8S", "18S", "25S"))
+RRNA_VFPs_ARIFICIAL <- rbind(RRNA_VFPs, c("PLACEHOLDER", NA, NA, NA, NA, 0, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, "Far East Russian", NA))
+RRNA_VFPs_ARIFICIAL<- rbind(RRNA_VFPs_ARIFICIAL, c("PLACEHOLDER", NA, NA, NA, NA, 0, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,"CHNI", NA))
+RRNA_VFPs_ARIFICIAL$VF <- as.numeric(RRNA_VFPs_ARIFICIAL$VF)
+RRNA_plot <- ggplot(RRNA_VFPs_ARIFICIAL, aes(x=VF*100,y=BIG_CLADE))+
+  geom_density_ridges(aes(fill = BIG_CLADE), size=0.2)+
+  theme(axis.text   = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none",
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  scale_y_discrete(limits=rev)+
+  scale_fill_manual(values = getPalette(colourCount))+
+  xlim(c(0,100))
+  
+plots(NTS_plot, ETS_ITS_plot, RRNA_plot, n_columns = 3)
+```
+#Do the same but based on ecological niche
+```{r}
+var_niche<-merge(filtered_vars, niche, by = "NAME")
+
+colourCount = length(unique(var_niche$Ecological.origins))
+getPalette = colorRampPalette(brewer.pal(9, "Greys"))
+
+NTS_plot_niche <- ggplot(subset(var_niche, REGION %in% c("NTS1", "NTS2")), aes(x=VF*100,y=Ecological.origins))+
+  geom_density_ridges(aes(fill = Ecological.origins), size=0.2)+
+  theme(#axis.text = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none",
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  scale_y_discrete(limits=rev)+
+  scale_fill_manual(values = getPalette(colourCount))+
+  xlim(c(0,100))
+
+getPalette = colorRampPalette(brewer.pal(9, "Oranges"))
+
+ETS_ITS_plot_niche <- ggplot(subset(var_niche, REGION %in% c("ITS1", "ITS2", "ETS1", "ETS2")), aes(x=VF*100,y=Ecological.origins))+
+  geom_density_ridges(aes(fill = Ecological.origins), size=0.2)+
+  theme(axis.text = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none",
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  scale_y_discrete(limits=rev)+
+  scale_fill_manual(values = getPalette(colourCount))+
+  xlim(c(0,100))
+  
+getPalette = colorRampPalette(brewer.pal(9, "Greens"))
+
+RRNA_plot_niche <- ggplot(subset(var_niche, REGION %in% c("5S", "5.8S", "18S", "25S")), aes(x=VF*100,y=Ecological.origins))+
+  geom_density_ridges(aes(fill = Ecological.origins), size=0.2)+
+  theme(axis.text   = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none",
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )+
+  scale_y_discrete(limits=rev)+
+  scale_fill_manual(values = getPalette(colourCount))+
+  xlim(c(0,100))
+plots(NTS_plot_niche, ETS_ITS_plot_niche, RRNA_plot_niche, n_columns = 3)
+
+#number of isolates in each niche (total). NOTE: the niche table has 1,011 isolates but I analyzed  918 of them so subset it first
+#note 2: actually iVFP data fo 917 not 918 isolates
+niche <- subset(niche, NAME %in% rDNA_copy_number_only_918$NAME)
+t(t(table(niche$Ecological.origins)))
+#iVFPs
+t(t(table((subset(var_niche, REGION %in% c("NTS1", "NTS2")))$Ecological.origins)))
+t(t(table((subset(var_niche, REGION %in% c("ITS1", "ITS2", "ETS1", "ETS2")))$Ecological.origins)))
+t(t(table((subset(var_niche, REGION %in% c("5S", "5.8S", "18S", "25S")))$Ecological.origins)))
+```
+
+#VF distribution by element
+
+```{r}
+var_ploidy<-merge(filtered_vars, rDNA_copynum[,c(1,6)], by = "NAME")
+
+#all
+par
+
+hist((subset(var_ploidy, REGION %in% c("NTS1", "NTS2")))$VF*100, 
+     xlab="VF, %", col="grey", breaks=100, main = "NTS; ploidy = all", ylim = c(1,6500))
+
+hist((subset(var_ploidy, REGION %in% c("ITS1", "ITS2", "ETS1", "ETS2")))$VF*100, 
+     xlab="VF, %", col="orange", breaks=100, main = "ETS+ITS; ploidy = all", ylim = c(1,1000))
+
+hist((subset(var_ploidy, REGION %in% c("5S", "5.8S", "18S", "25S")))$VF*100,
+     xlab="VF, %", col="green", breaks=100, main = "rRNA; ploidy = all",  ylim = c(1,1000))
+
+
+
+
+hist((subset(var_ploidy, REGION %in% c("NTS1", "NTS2") & Ploidy == "1"))$VF*100, 
+     xlab="VF, %", col="grey", breaks=100, main = "NTS; ploidy = 1n")
+hist((subset(var_ploidy, REGION %in% c("NTS1", "NTS2") & Ploidy == "2"))$VF*100, 
+     xlab="VF, %", col="grey", breaks=100, main = "NTS; ploidy = 2n")
+hist((subset(var_ploidy, REGION %in% c("NTS1", "NTS2") & Ploidy %in% c("3", "4", "5")))$VF*100, 
+     xlab="VF, %", col="grey", breaks=100, main = "NTS; ploidy >= 3n")
+
+hist((subset(var_ploidy, REGION %in% c("ITS1", "ITS2", "ETS1", "ETS2") & Ploidy == "1"))$VF*100, 
+     xlab="VF, %", col="orange", breaks=100, main = "ETS+ITS; ploidy = 1n")
+hist((subset(var_ploidy, REGION %in% c("ITS1", "ITS2", "ETS1", "ETS2") & Ploidy == "2"))$VF*100, 
+     xlab="VF, %", col="orange", breaks=100, main = "ETS+ITS; ploidy = 2n")
+hist((subset(var_ploidy, REGION %in% c("ITS1", "ITS2", "ETS1", "ETS2") & Ploidy %in% c("3", "4", "5")))$VF*100, 
+     xlab="VF, %", col="orange", breaks=100, main = "ETS+ITS; ploidy >= 3n")
+
+hist((subset(var_ploidy, REGION %in% c("5S", "5.8S", "18S", "25S") & Ploidy == "1"))$VF*100, 
+     xlab="VF, %", col="green", breaks=100, main = "rRNA; ploidy = 1n")
+hist((subset(var_ploidy, REGION %in% c("5S", "5.8S", "18S", "25S") & Ploidy == "2"))$VF*100, 
+     xlab="VF, %", col="green", breaks=100, main = "rRNA; ploidy = 2n")
+hist((subset(var_ploidy, REGION %in% c("5S", "5.8S", "18S", "25S") & Ploidy %in% c("3", "4", "5")))$VF*100, 
+     xlab="VF, %", col="green", breaks=100, main = "rRNA; ploidy >= 3n")
+```
+#Distribution of variants with VF ≥ 99% across isolates
+```{r}
+#get variants with VF >= 99% (VFPs)
+isolates_VF99 <- subset(var_ploidy, VF >= 0.99)
+
+#haploid
+isolates_VF99_1n <- subset(isolates_VF99, Ploidy == "1")
+#diploid
+isolates_VF99_2n <- subset(isolates_VF99, Ploidy == "2")
+#polyploid 3-5n
+isolates_VF99_35n <- subset(isolates_VF99, Ploidy %in% c("3", "4", "5"))
+
+#top 5 abundant variants
+(sort(table(paste(isolates_VF99$POSITION, isolates_VF99$REFERENCE, isolates_VF99$ISOLATE)), decreasing = T))[1:5]
+(sort(table(paste(isolates_VF99_1n$POSITION, isolates_VF99_1n$REFERENCE, isolates_VF99_1n$ISOLATE)), decreasing = T))[1:5]
+(sort(table(paste(isolates_VF99_2n$POSITION, isolates_VF99_2n$REFERENCE, isolates_VF99_2n$ISOLATE)), decreasing = T))[1:5]
+(sort(table(paste(isolates_VF99_35n$POSITION, isolates_VF99_35n$REFERENCE, isolates_VF99_35n$ISOLATE)), decreasing = T))[1:5]
+
+#plot all/by ploidy
+barplot(sort(table(paste(isolates_VF99$POSITION, isolates_VF99$REFERENCE, isolates_VF99$ISOLATE)), decreasing = T), ylim=c(0,800), main = "all")
+barplot(sort(table(paste(isolates_VF99_1n$POSITION, isolates_VF99_1n$REFERENCE, isolates_VF99_1n$ISOLATE)), decreasing = T), ylim=c(0,120), main = "1n")
+barplot(sort(table(paste(isolates_VF99_2n$POSITION, isolates_VF99_2n$REFERENCE, isolates_VF99_2n$ISOLATE)), decreasing = T), ylim=c(0,650), main = "2n")
+barplot(sort(table(paste(isolates_VF99_35n$POSITION, isolates_VF99_35n$REFERENCE, isolates_VF99_35n$ISOLATE)), decreasing = T), ylim=c(0,80), main = "3n-5n")
+
+#contribution of the 5 NTS vars to the skew of NTS iVFP distribution
+##percentage of 5 NTS vars in the peaks with iVF > 99% from Fig 1
+isolates_VF99_NTS <- subset(isolates_VF99, REGION %in% c("NTS1", "NTS2"))
+table(paste(isolates_VF99_NTS$POSITION, isolates_VF99_NTS$REFERENCE, isolates_VF99_NTS$ISOLATE, sep = "_") %in% c("817_C_A", "638_C_T",  "557_C_T",  "648_A_G", "2227_C_T"))
+2989/(2989+3518)
+```
+
+#Number of variants per element
+```{r}
+var_per_element <- cbind(element_length[,c(1,3)], c(variant_type$SNV + variant_type$INDEL))
+colnames(var_per_element) <- c("REGION", "Adjusted_length", "Number_of_variants")
+ggplot(var_per_element, aes(Adjusted_length, Number_of_variants))+
+  geom_point(alpha=0.8, color = "#CC6600", size = 2)+
+  geom_smooth(method="lm")+
+  ggpubr::stat_cor(method = "pearson", label.x = 5.2, label.y = 750)+ #from ggpubr
+  ggtitle("correlation between element length and and number of unique variants")+
+  theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )
+```
+#Indel length distribution
+
+```{r}
+#get indels
+all_indels<-subset(filtered_vars, INDEL == "INDEL")
+
+#add indel size
+all_indels$INDEL_SIZE <- as.character(abs(nchar(all_indels$REFERENCE) - nchar(all_indels$ISOLATE)))
+
+#add variants
+#note: as character.
+all_indels$VAR <- paste(all_indels$POSITION, all_indels$REFERENCE, all_indels$ISOLATE)
+
+#occurring indel lengths:
+sort(unique((abs(nchar(all_indels$REFERENCE) - nchar(all_indels$ISOLATE)))))
+
+all_indels <- select(all_indels, REGION, INDEL_SIZE, VAR)
+
+#add categories
+cat_reg<-tribble(~REGION, ~CATEGORY,
+        "NTS1", "NTS",
+        "NTS2", "NTS",
+        "ETS1", "ETS+ITS",
+        "ETS2", "ETS+ITS",
+        "ITS1", "ETS+ITS",
+        "ITS2", "ETS+ITS",
+        "5S", "RRNA",
+        "5.8S", "RRNA",
+        "18S", "RRNA",
+        "25S", "RRNA")
+all_indels<-merge(all_indels, cat_reg, by = "REGION")
+all_indels$INDEL_SIZE <- factor(all_indels$INDEL_SIZE, levels = seq(1:24))
+
+#get variants and count them
+all_indels <- unique(all_indels[,c(2,3,4)])
+all_indels_df <- all_indels %>% count(INDEL_SIZE, CATEGORY)
+
+#add zeros
+zeros<-tribble(~INDEL_SIZE, ~CATEGORY, ~n,
+        "5", "RRNA", 0,
+        "7", "RRNA", 0,
+        "9", "RRNA", 0,
+        "10", "NTS", 0,
+        "10", "ETS+ITS", 0,
+        "10", "RRNA", 0,
+        "11", "NTS", 0,
+        "11", "ETS+ITS", 0,
+        "11", "RRNA", 0,
+        "12", "NTS", 0,
+        "12", "ETS+ITS", 0,
+        "13", "RRNA", 0,
+        "14", "ETS+ITS", 0,
+        "14", "RRNA", 0,
+        "15", "ETS+ITS", 0,
+        "15", "RRNA", 0,
+        "16", "ETS+ITS", 0,
+        "16", "RRNA", 0,
+        "17", "ETS+ITS", 0,
+        "17", "RRNA", 0,
+        "18", "NTS", 0,
+        "18", "ETS+ITS", 0,
+        "18", "RRNA", 0,
+        "19", "NTS", 0,
+        "19", "ETS+ITS", 0,
+        "19", "RRNA", 0,
+        "20", "NTS", 0,
+        "20", "ETS+ITS", 0,
+        "20", "RRNA", 0,
+        "21", "NTS", 0,
+        "21", "ETS+ITS", 0,
+        "21", "RRNA", 0,
+        "22", "NTS", 0,
+        "22", "ETS+ITS", 0,
+        "22", "RRNA", 0,
+        "23", "NTS", 0,
+        "23", "ETS+ITS", 0,
+        "23", "RRNA", 0,
+        "24", "NTS", 0,
+        "24", "RRNA", 0
+        )
+all_indels_df<-rbind(all_indels_df, zeros)
+all_indels_df$CATEGORY <- factor(all_indels_df$CATEGORY, levels = c("NTS", "ETS+ITS", "RRNA"))
+
+#plot
+ggplot(all_indels_df, aes(x = INDEL_SIZE, y = n, fill = CATEGORY))+
+  geom_bar(stat="identity", position=position_dodge(), color = "black")+
+  ggtitle("Indel length distribution")+
+  xlab("Indel size")+
+  ylab("Number of variants")+
+  scale_fill_manual(values = c("#BEBEBE", "#FFA500", "#00BA38"))+
+  theme(panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank()
+        )
+```
+there is one long indel == 12 bp in 25S rRNA:
+NAME  ACCESSION POSITION     REFERENCE ISOLATE       VF INDEL HRUN REGION QUAL_SCORE SB    DP              DP4 one_copy_VF
+BNE ERR1308659     5497 CTCTTTTCAAAGT       C 0.008861 INDEL    1    25S       2306  0 19410 9387,10073,84,88       0.005
+localized to TAR1 as well;
+REF seauence annotated in RNA central in S288c: https://rnacentral.org/rna/URS000061F377/559292
+
+#Sharedness of variants across isolates
+```{r}
+var_sharedness<-as.data.frame(t(t(sort(table(paste(filtered_vars$POSITION, filtered_vars$REFERENCE, filtered_vars$ISOLATE))))))
+var_sharedness<-var_sharedness[,c(1,3)]
+colnames(var_sharedness) <- c("Variant", "Sharedness")
+sharedness <- rep("a", nrow(var_sharedness))
+for (i in 1:nrow(var_sharedness)){
+  if (var_sharedness[i,2] == 1){
+    sharedness[i] <- "1"
+  }else if (var_sharedness[i,2] == 2) {
+    sharedness[i] <- "2"
+  }else if (var_sharedness[i,2] == 3) {
+    sharedness[i] <- "3"
+  }else if (var_sharedness[i,2] == 4){
+    sharedness[i] <- "4"
+  }else if (var_sharedness[i,2] == 5){
+    sharedness[i] <- "5"
+  }else{
+    sharedness[i] <- ">5"
+  }
+}
+shared <- as.data.frame(t(t(table(sharedness))))
+
+colnames(shared) <- c("Shared_M_times","axs", "N_of_variants")
+shared$Shared_M_times <- factor(shared$Shared_M_times, levels = c("1", "2", "3", "4", "5", ">5"))
+shared$Frac <- shared$N_of_variants/sum(shared$N_of_variants)
+
+ggplot(shared, aes(x = axs, y = Frac, fill = Shared_M_times))+
+  geom_bar(stat="identity", color = "black")+
+  #geom_text(aes(label=N_of_variants), vjust=1, color="white", size=4)+
+  theme_minimal()+
+  scale_fill_brewer(palette="Dark2")
+```
+#Sharedness of variants across isolates stratified by rDNA elements
+
+```{r}
+#make dataframe
+var_sharedness_element<-select(filtered_vars, NAME, POSITION, REFERENCE, ISOLATE, REGION)
+var_sharedness_element$VAR <- paste(var_sharedness_element$POSITION, var_sharedness_element$REFERENCE, var_sharedness_element$ISOLATE)
+#check length
+length(unique(var_sharedness_element$VAR))
+
+#add categories
+var_sharedness_element<-merge(var_sharedness_element, cat_reg, by = "REGION")
+
+#count variants
+count_vars_isolates<-var_sharedness_element %>% group_by(VAR) %>% count()
+
+#number of shared variants per isolate
+isolates_per_variant<-unique(select(merge(count_vars_isolates, var_sharedness_element, by = "VAR"), VAR, n, CATEGORY))
+
+#rename
+colnames(isolates_per_variant) <- c("Variant", "number_of_shared_isolates" , "Category")
+
+isolates_per_variant$Category <- factor(isolates_per_variant$Category, levels = c("RRNA", "ETS+ITS", "NTS"))
+
+#plot
+ggplot(isolates_per_variant, aes(x=Category, y=log2(number_of_shared_isolates))) + 
+  geom_violin(fill="red", alpha = 0.1)+
+  geom_jitter(shape=16, position=position_jitter(0.3), alpha=0.5, color = "#CC6600", size = 1.2)+
+   theme(axis.text   = element_text(size=14, color = "black"),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+        )
+
+#statistics
+#counts per category
+isolates_per_variant %>% group_by(Category) %>% count()
+
+#mean
+isolates_per_variant %>% group_by(Category) %>% summarise_at(vars(number_of_shared_isolates), mean)
+
+#median
+isolates_per_variant %>% group_by(Category) %>% summarise_at(vars(number_of_shared_isolates), median)
+
+#statistical test
+pairwise.wilcox.test(isolates_per_variant$number_of_shared_isolates, isolates_per_variant$Category, p.adjust.method = "BH")
+
+#exact p.values (adjusted)
+pairwise.wilcox.test(isolates_per_variant$number_of_shared_isolates, isolates_per_variant$Category, p.adjust.method = "BH")$p.value
+```
+
+
+
