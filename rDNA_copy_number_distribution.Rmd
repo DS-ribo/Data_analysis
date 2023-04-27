@@ -1,0 +1,46 @@
+---
+title: "rDNA_copy_number_distributions"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library("ggplot2")
+library("see")
+```
+
+data
+```{r}
+rDNA_copynum <- read.table("~/Desktop/work/database/source/rDNA_copynumber.txt", sep = "\t", header = T)
+clade <- read.table("~/Desktop/work/database/source/Clades.txt", sep = "\t", header = T)
+colnames(clade) <- c("NAME", "CLADE", "ABBREVIATION", "BIG_CLADE", "TREE_PAPER")
+```
+
+#rDNA copy number distribution across clades
+```{r}
+rDNA_clade_total <- merge(rDNA_copynum[,c(1,5,8)], clade[,c(1,4)], by = "NAME")
+
+```
+
+```{r}
+#total
+t<-ggplot(rDNA_clade_total, aes(x=BIG_CLADE, y=total)) + 
+  geom_boxplot(fill = "burlywood", outlier.size = 1)+
+  theme_classic()+
+  theme(axis.text.x = element_blank(),
+        aspect.ratio = 0.2,
+        )
+
+#per haploid
+h<-ggplot(rDNA_clade_total, aes(x=BIG_CLADE, y=mean_per_haploid)) + 
+  geom_boxplot(fill = "darkslategray3", outlier.size = 1)+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 90),
+        aspect.ratio = 0.2,
+        legend.position = "none")
+
+plots(t, h, n_columns = 1)
+
+#numbers
+table(rDNA_clade_total$BIG_CLADE)
+
+```
