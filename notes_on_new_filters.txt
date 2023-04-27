@@ -1,0 +1,5 @@
+New data filters:
+
+1. Up the threshold: use >= 0.5% instead of 0.4%
+2. For each isolate: calculate theoretical VF_teor that correspond to 1 rDNA copy and remove those VF < VF_teor
+3. Remove variants associated with homopolymers (see poly_mers file)

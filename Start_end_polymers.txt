@@ -1,0 +1,14 @@
+#start #end #region #minor region
+48  60  NTS2
+177 188 NTS2
+1371    1403    NTS1
+1568    1589    NTS1
+1950    1975    NTS1
+2043    2054    NTS1
+2243    2274    NTS1
+2481    2490    ETS2
+2491    2496    25S
+6033    6044    ITS2
+6598    6611    ITS1
+8467    8478    ETS1
+8489    8504    ETS1
